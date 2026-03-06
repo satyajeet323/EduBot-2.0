@@ -206,30 +206,38 @@ const Questions = () => {
     const Icon = subject.icon
     const navigate = useNavigate()
 
-     const handlePracticeClick = () => {
-    if (subject.name === 'Database Management') {
-      navigate('/dbms-quiz') // Navigate to DBMS Quiz for Database Management
-    } 
-    else if(subject.name === 'Computer Network') {
-      navigate('/networking-playground')
+    const handleMCQClick = () => {
+      navigate('/mcq-exam', { 
+        state: { 
+          subject: subject.name.toLowerCase().replace(/\s+/g, '-'),
+          subjectName: subject.name 
+        } 
+      })
     }
-    else if(subject.name === 'Python') {
-      navigate('/code-editor')
+
+    const handlePracticeClick = () => {
+      if (subject.name === 'Database Management') {
+        navigate('/dbms-quiz')
+      } 
+      else if(subject.name === 'Computer Network') {
+        navigate('/networking-playground')
+      }
+      else if(subject.name === 'Python') {
+        navigate('/code-editor')
+      }
+      else if(subject.name === 'Java') {
+        navigate('/code-editor')
+      }
+      else if(subject.name === 'C++') {
+        navigate('/code-editor')
+      }
+      else if(subject.name === 'C') {
+        navigate('/code-editor')
+      }
+      else {
+        navigate(`/practice/${subject.id}`)
+      }
     }
-    else if(subject.name === 'Java') {
-      navigate('/code-editor')
-    }
-    else if(subject.name === 'C++') {
-      navigate('/code-editor')
-    }
-    else if(subject.name === 'C') {
-      navigate('/code-editor')
-    }
-  
-    else {
-      navigate(`/practice/${subject.id}`) // Default practice route for other subjects
-    }
-  }
     
     return (
        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 hover:shadow-lg">
@@ -272,15 +280,15 @@ const Questions = () => {
           </div>
           
           <div className="mt-6 flex space-x-3">
-          <Link
-            to={`/questions/${subject.id}`}
+          <button
+            onClick={handleMCQClick}
             className="flex-1 flex items-center justify-center px-4 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
           >
             <BookOpen className="w-4 h-4 mr-2" />
             MCQ
-          </Link>
+          </button>
           <button
-            onClick={handlePracticeClick} // Use the new handler
+            onClick={handlePracticeClick}
             className="flex-1 flex items-center justify-center px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <Play className="w-4 h-4 mr-2" />

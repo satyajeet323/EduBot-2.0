@@ -20,6 +20,7 @@ const faceRecognitionRoutes = require("./routes/faceRecognition");
 const quizRoutes = require("./routes/quiz");
 const leaderboardRoutes = require("./routes/leaderboard");
 const practicalRoutes = require("./routes/practical");
+const mcqRoutes = require("./routes/mcq");
 
 // Import middleware
 const { errorHandler } = require("./middleware/errorHandler");
@@ -84,6 +85,7 @@ app.use("/api/face-recognition", faceRecognitionRoutes);
 app.use("/api/quiz", quizRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/practical", practicalRoutes);
+app.use("/api/mcq", mcqRoutes);
 
 // =============================================================================
 // NETWORKING ROUTES - Forward to Flask backend

@@ -23,7 +23,8 @@ import PythonSyllabus from './pages/syllabus/PythonSyllabus';
 import JavaSyllabus from './pages/syllabus/JavaSyllabus';
 import CppSyllabus from './pages/syllabus/CppSyllabus';
 import CSyllabus from './pages/syllabus/CSyllabus';
-import EnglishFluencyRecorder from './EnglishFluencyRecorder' // Add this import
+import EnglishFluencyRecorder from './EnglishFluencyRecorder'
+import MCQExam from './pages/MCQExam'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -132,6 +133,13 @@ function AppRoutes() {
       }>
         <Route index element={<EnglishFluencyRecorder />} />
       </Route>
+
+      {/* MCQ Exam Route */}
+      <Route path="/mcq-exam" element={
+        <ProtectedRoute>
+          <MCQExam />
+        </ProtectedRoute>
+      } />
       
       <Route path="/profile" element={
         <ProtectedRoute>

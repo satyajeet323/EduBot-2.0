@@ -129,15 +129,21 @@ const userSchema = new mongoose.Schema({
     cpp: { type: Number, default: 0 }
   },
   quizHistory: [{
-    questionId: { type: String, required: true },
+    questionId: { type: String },
     module: {
       type: String,
-      enum: ['dbms', 'computerNetworks', 'python', 'java', 'c', 'cpp'],
-      required: true
+      enum: ['dbms', 'computerNetworks', 'python', 'java', 'c', 'cpp']
     },
-    selectedAnswer: { type: String, required: true },
-    correctAnswer: { type: String, required: true },
-    isCorrect: { type: Boolean, required: true },
+    subject: { type: String },
+    selectedAnswer: { type: String },
+    correctAnswer: { type: String },
+    isCorrect: { type: Boolean },
+    score: { type: Number },
+    totalQuestions: { type: Number },
+    task: { type: String },
+    performanceScore: { type: Number, min: 0, max: 5 },
+    pointsAwarded: { type: Number },
+    meta: { type: Object, default: {} },
     timestamp: { type: Date, default: Date.now }
   }],
   

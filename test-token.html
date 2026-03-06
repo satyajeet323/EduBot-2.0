@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .token-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+        .token-info.error {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+        .token-info.success {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .token-value {
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 3px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Token Checker</h1>
+        <p>This tool helps you check if your authentication token is properly stored.</p>
+        
+        <button onclick="checkToken()">Check Token</button>
+        <button onclick="clearTokens()">Clear All Tokens</button>
+        <button onclick="testAPI()">Test API Call</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function checkToken() {
+            const results = document.getElementById('results');
+            results.innerHTML = '';
+            
+            // Check sessionStorage
+            const sessionToken = sessionStorage.getItem('token');
+            const sessionUser = sessionStorage.getItem('user');
+            
+            // Check localStorage
+            const localToken = localStorage.getItem('token');
+            const localUser = localStorage.getItem('user');
+            
+            // Display results
+            let html = '<h2>Token Status:</h2>';
+            
+            // SessionStorage
+            html += `<div class="token-info ${sessionToken ? 'success' : 'error'}">
+                <strong>SessionStorage Token:</strong> ${sessionToken ? '✅ Found' : '❌ Not Found'}
+                ${sessionToken ? `<div class="token-value">${sessionToken.substring(0, 50)}...</div>` : ''}
+            </div>`;
+            
+            html += `<div class="token-info ${sessionUser ? 'success' : 'error'}">
+                <strong>SessionStorage User:</strong> ${sessionUser ? '✅ Found' : '❌ Not Found'}
+            </div>`;
+            
+            // LocalStorage
+            html += `<div class="token-info ${localToken ? 'success' : 'error'}">
+                <strong>LocalStorage Token:</strong> ${localToken ? '✅ Found' : '❌ Not Found'}
+                ${localToken ? `<div class="token-value">${localToken.substring(0, 50)}...</div>` : ''}
+            </div>`;
+            
+            html += `<div class="token-info ${localUser ? 'success' : 'error'}">
+                <strong>LocalStorage User:</strong> ${localUser ? '✅ Found' : '❌ Not Found'}
+            </div>`;
+            
+            // Recommendation
+            if (!sessionToken && !localToken) {
+                html += `<div class="token-info error">
+                    <strong>⚠️ No Token Found!</strong><br>
+                    You need to login to get a token.<br>
+                    Go to: <a href="http://localhost:5173/login">http://localhost:5173/login</a>
+                </div>`;
+            } else if (sessionToken) {
+                html += `<div class="token-info success">
+                    <strong>✅ Token Found in SessionStorage!</strong><br>
+                    The MCQ feature should work now.
+                </div>`;
+                
+                // Try to decode JWT
+                try {
+                    const payload = JSON.parse(atob(sessionToken.split('.')[1]));
+                    const expiry = new Date(payload.exp * 1000);
+                    const now = new Date();
+                    const isExpired = expiry < now;
+                    
+                    html += `<div class="token-info ${isExpired ? 'error' : 'success'}">
+                        <strong>Token Expiry:</strong> ${expiry.toLocaleString()}<br>
+                        <strong>Status:</strong> ${isExpired ? '❌ Expired' : '✅ Valid'}<br>
+                        ${isExpired ? 'Please login again to get a new token.' : ''}
+                    </div>`;
+                } catch (e) {
+                    html += `<div class="token-info error">
+                        <strong>⚠️ Could not decode token</strong><br>
+                        Token might be invalid.
+                    </div>`;
+                }
+            }
+            
+            results.innerHTML = html;
+        }
+        
+        function clearTokens() {
+            sessionStorage.clear();
+            localStorage.clear();
+            alert('All tokens cleared! Please login again.');
+            checkToken();
+        }
+        
+        async function testAPI() {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            
+            if (!token) {
+                alert('No token found! Please login first.');
+                return;
+            }
+            
+            const results = document.getElementById('results');
+            results.innerHTML = '<div class="token-info">Testing API call...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/mcq/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        subject: 'Computer Network',
+                        difficulty: 'intermediate'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    results.innerHTML = `<div class="token-info success">
+                        <strong>✅ API Call Successful!</strong><br>
+                        Generated ${data.data.questions.length} questions<br>
+                        Subject: ${data.data.subject}<br>
+                        ${data.data.fallback ? '⚠️ Using fallback questions' : '✅ Using Gemini AI'}
+                    </div>`;
+                } else {
+                    results.innerHTML = `<div class="token-info error">
+                        <strong>❌ API Call Failed!</strong><br>
+                        Status: ${response.status}<br>
+                        Message: ${data.message || 'Unknown error'}<br>
+                        ${response.status === 401 ? 'Please login again.' : ''}
+                    </div>`;
+                }
+            } catch (error) {
+                results.innerHTML = `<div class="token-info error">
+                    <strong>❌ Network Error!</strong><br>
+                    ${error.message}<br>
+                    Make sure the server is running on http://localhost:5000
+                </div>`;
+            }
+        }
+        
+        // Auto-check on load
+        window.onload = checkToken;
+    </script>
+</body>
+</html>
