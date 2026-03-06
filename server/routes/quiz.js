@@ -5,6 +5,9 @@ const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Apply authentication middleware to all routes
+router.use(authMiddleware);
+
 // Valid modules for progress tracking
 const VALID_MODULES = ['dbms', 'computerNetworks', 'python', 'java', 'c', 'cpp'];
 
@@ -13,7 +16,6 @@ const VALID_MODULES = ['dbms', 'computerNetworks', 'python', 'java', 'c', 'cpp']
 // @access  Private
 router.post(
   '/:module/submit',
-  authMiddleware,
   [
     body('questionId').notEmpty().withMessage('questionId is required'),
     body('selectedAnswer').notEmpty().withMessage('selectedAnswer is required'),

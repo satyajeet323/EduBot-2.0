@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
-const { generateToken } = require('../middleware/auth');
+const { generateToken, authMiddleware } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const router = express.Router();
@@ -251,7 +251,7 @@ router.post('/logout', (req, res) => {
 // @route   GET /api/auth/me
 // @desc    Get current user
 // @access  Private
-router.get('/me', asyncHandler(async (req, res) => {
+router.get('/me', authMiddleware, asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id);
   
   res.json({

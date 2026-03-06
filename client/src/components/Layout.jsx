@@ -12,7 +12,8 @@ import {
   Trophy,
   BarChart3,
   Sun,
-  Moon
+  Moon,
+  Mic
 } from 'lucide-react'
 
 const Layout = () => {
@@ -39,6 +40,7 @@ const Layout = () => {
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Subjects', href: '/subjects', icon: BookOpen },
     { name: 'Questions', href: '/questions', icon: HelpCircle },
+    { name: 'English Fluency', href: '/english-fluency', icon: Mic },
     { name: 'Profile', href: '/profile', icon: User },
   ]
 

@@ -98,6 +98,9 @@ Thumbs.db
 # Server specific
 server/uploads/
 server/models/face-api/
+server/temp_code/
+server/temp_audio/
+server/sessions/
 
 # Client specific
 client/.vite/

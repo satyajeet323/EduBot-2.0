@@ -25,6 +25,18 @@ const practicalRoutes = require("./routes/practical");
 const { errorHandler } = require("./middleware/errorHandler");
 const { authMiddleware } = require("./middleware/auth");
 
+// Middleware to check database connection
+const checkDBConnection = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      status: 'error',
+      message: 'Database connection unavailable. Please try again later.',
+      code: 'DB_UNAVAILABLE'
+    });
+  }
+  next();
+};
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -65,11 +77,11 @@ const upload = multer({ dest: "uploads/" });
 
 // API Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/user", authMiddleware, userRoutes);
-app.use("/api/subjects", authMiddleware, subjectRoutes);
-app.use("/api/questions", authMiddleware, questionRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/subjects", subjectRoutes);
+app.use("/api/questions", questionRoutes);
 app.use("/api/face-recognition", faceRecognitionRoutes);
-app.use("/api/quiz", authMiddleware, quizRoutes);
+app.use("/api/quiz", quizRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/practical", practicalRoutes);
 
@@ -189,14 +201,22 @@ app.post("/api/coding/run", async (req, res) => {
   const { code, language, question } = req.body;
 
   if (!code || !language || !question) {
-    return res.status(400).json({ error: "Missing code, language, or question" });
+    return res.status(400).json({ 
+      status: "error",
+      error: "Missing code, language, or question" 
+    });
   }
 
   try {
+    console.log(`Forwarding code execution request to Flask: ${language}`);
+    
     const flaskResponse = await axios.post(
       "http://localhost:5001/run-code",
       { code, language, question },
-      { headers: { "Content-Type": "application/json" } }
+      { 
+        headers: { "Content-Type": "application/json" },
+        timeout: 30000 // 30 second timeout
+      }
     );
 
     res.json({
@@ -206,7 +226,20 @@ app.post("/api/coding/run", async (req, res) => {
     });
   } catch (error) {
     console.error("Error forwarding to Flask backend:", error.message);
-    res.status(500).json({ error: "Failed to run code" });
+    
+    let errorMessage = "Failed to run code";
+    if (error.code === 'ECONNREFUSED') {
+      errorMessage = "Code execution service is not available. Please ensure the Flask server is running.";
+    } else if (error.code === 'ECONNRESET') {
+      errorMessage = "Connection to code execution service was reset. Please try again.";
+    } else if (error.response?.data?.error) {
+      errorMessage = error.response.data.error;
+    }
+    
+    res.status(500).json({ 
+      status: "error",
+      error: errorMessage 
+    });
   }
 });
 
@@ -306,12 +339,111 @@ app.post("/api/sql/evaluate", async (req, res) => {
   }
 });
 
+// =============================================================================
+// FLUENCY ROUTES - Forward to Flask backend
+// =============================================================================
+
+// Generate fluency topic
+app.get("/api/fluency/topic", async (req, res) => {
+  try {
+    const flaskResponse = await axios.get("http://localhost:5001/api/fluency/topic");
+    res.json(flaskResponse.data);
+  } catch (error) {
+    console.error("Error forwarding fluency topic request:", error.message);
+    res.status(500).json({ error: "Failed to generate fluency topic" });
+  }
+});
+
+// Upload fluency audio - handle multipart form data
+app.post("/api/fluency/upload", upload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No audio file provided" });
+    }
+
+    // Create FormData to forward to Flask
+    const FormData = require('form-data');
+    const formData = new FormData();
+    const fs = require('fs');
+    
+    // Read the uploaded file and append to form data
+    const fileStream = fs.createReadStream(req.file.path);
+    formData.append('audio', fileStream, {
+      filename: req.file.originalname || 'fluency-test.webm',
+      contentType: req.file.mimetype || 'audio/webm'
+    });
+
+    // Forward to Flask with proper headers
+    const flaskResponse = await axios.post(
+      "http://localhost:5001/api/fluency/upload",
+      formData,
+      { 
+        headers: {
+          ...formData.getHeaders()
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
+      }
+    );
+
+    // Clean up uploaded file
+    fs.unlink(req.file.path, (err) => {
+      if (err) console.error('Error deleting temp file:', err);
+    });
+
+    res.json(flaskResponse.data);
+  } catch (error) {
+    console.error("Error forwarding fluency upload request:", error.message);
+    
+    // Clean up uploaded file on error
+    if (req.file && req.file.path) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('Error deleting temp file:', err);
+      });
+    }
+    
+    res.status(500).json({ error: "Failed to process fluency audio" });
+  }
+});
+
+// Score fluency
+app.post("/api/fluency/score", async (req, res) => {
+  try {
+    const flaskResponse = await axios.post(
+      "http://localhost:5001/api/fluency/score",
+      req.body,
+      { headers: { "Content-Type": "application/json" } }
+    );
+    res.json(flaskResponse.data);
+  } catch (error) {
+    console.error("Error forwarding fluency score request:", error.message);
+    res.status(500).json({ error: "Failed to score fluency" });
+  }
+});
+
 // Health check endpoint
 app.get("/api/health", (req, res) => {
+  const dbStatus = mongoose.connection.readyState;
+  const dbStatusMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
   res.status(200).json({
     status: "success",
     message: "EduBot API is running",
     timestamp: new Date().toISOString(),
+    database: {
+      status: dbStatusMap[dbStatus] || 'unknown',
+      connected: dbStatus === 1
+    },
+    services: {
+      api: 'operational',
+      flask: 'check http://localhost:5001',
+      database: dbStatus === 1 ? 'operational' : 'unavailable'
+    }
   });
 });
 
@@ -326,30 +458,64 @@ app.use("*", (req, res) => {
   });
 });
 
-// MongoDB connection
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(
-      process.env.MONGODB_URI || "mongodb://localhost:27017/edubot"
-    );
-    console.log(`MongoDB Connected Successfully: ${conn.connection.host}`);
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    process.exit(1);
+// MongoDB connection with retry logic
+const connectDB = async (retries = 5, delay = 5000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      console.log(`Attempting to connect to MongoDB... (Attempt ${i + 1}/${retries})`);
+      
+      const conn = await mongoose.connect(
+        process.env.MONGODB_URI || "mongodb://localhost:27017/edubot",
+        {
+          serverSelectionTimeoutMS: 10000, // Timeout after 10 seconds
+          socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+        }
+      );
+      
+      console.log(`✅ MongoDB Connected Successfully: ${conn.connection.host}`);
+      return conn;
+    } catch (error) {
+      console.error(`❌ MongoDB connection attempt ${i + 1} failed:`, error.message);
+      
+      if (i === retries - 1) {
+        console.error("\n⚠️  MongoDB Connection Failed After All Retries");
+        console.error("⚠️  The server will continue running without database functionality");
+        console.error("⚠️  Please check:");
+        console.error("   1. Your internet connection");
+        console.error("   2. MongoDB Atlas cluster is running (not paused)");
+        console.error("   3. Your IP address is whitelisted in MongoDB Atlas");
+        console.error("   4. The connection string in .env is correct\n");
+        return null;
+      }
+      
+      console.log(`⏳ Retrying in ${delay / 1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
 };
 
 // Start server
 const startServer = async () => {
-  await connectDB();
+  const dbConnection = await connectDB();
+  
+  if (!dbConnection) {
+    console.log("⚠️  Starting server without database connection...");
+  }
+  
   app.listen(PORT, () => {
-    console.log(`🚀 EduBot Server running on port ${PORT}`);
+    console.log(`\n🚀 EduBot Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
     console.log(`🔗 Flask backend: http://localhost:5001`);
     console.log(`💻 Code execution: http://localhost:${PORT}/api/coding/run`);
     console.log(`🌐 Networking: http://localhost:${PORT}/api/network/generate-question`);
     console.log(`🗄️ SQL Practice: http://localhost:${PORT}/api/sql/generate-question`);
+    console.log(`🎤 English Fluency: http://localhost:${PORT}/api/fluency/topic\n`);
+    
+    if (!dbConnection) {
+      console.log("⚠️  WARNING: Server is running without database connection!");
+      console.log("⚠️  Authentication and data persistence features will not work.\n");
+    }
   });
 };
 

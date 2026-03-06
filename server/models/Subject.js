@@ -110,7 +110,7 @@ subjectSchema.virtual('totalEstimatedTime').get(function() {
 });
 
 // Index for better query performance
-subjectSchema.index({ name: 1 });
+// Note: name index is already created by unique: true in schema definition
 subjectSchema.index({ category: 1 });
 subjectSchema.index({ isActive: 1 });
 subjectSchema.index({ popularity: -1 });

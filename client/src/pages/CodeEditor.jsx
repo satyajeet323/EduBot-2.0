@@ -9,11 +9,11 @@ import { Cpu, Play, RefreshCw } from 'lucide-react';
 
 const CodeEditor = () => {
   const { user } = useAuth();
-  const [code, setCode] = useState('// Write your code here');
+  const [code, setCode] = useState('# Write your Python code here\nprint("Hello, World!")');
   const [output, setOutput] = useState('');
   const [aiFeedback, setAiFeedback] = useState('');
   const [language, setLanguage] = useState('python');
-  const [question, setQuestion] = useState('');
+  const [question, setQuestion] = useState('Write a program that prints "Hello, World!" to the console.');
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -31,7 +31,7 @@ const CodeEditor = () => {
     setLoadingQuestion(true);
     setQuestion('Generating question...');
     try {
-      const res = await axios.get('http://localhost:5001/generate-coding-question');
+      const res = await axios.get('/api/coding/generate-question');
       setQuestion(res.data.question || 'Failed to generate question.');
     } catch (err) {
       setQuestion('❌ Error generating question. Please try again.');
@@ -46,16 +46,32 @@ const CodeEditor = () => {
     setOutput('Running your code...');
     setAiFeedback('');
     try {
-      const response = await axios.post('http://localhost:5001/run-code', {
+      const response = await axios.post('/api/coding/run', {
         code,
         language,
         question,
       });
-      setOutput(response.data.output);
-      setAiFeedback(response.data.ai_feedback || '');
+      
+      if (response.data.status === 'success') {
+        setOutput(response.data.output || 'Code executed successfully (no output)');
+        setAiFeedback(response.data.ai_feedback || '');
+      } else {
+        setOutput(`❌ Error: ${response.data.error || 'Unknown error occurred'}`);
+        setAiFeedback('');
+      }
     } catch (error) {
       console.error('Error running code:', error);
-      setOutput('⚠️ Error connecting to server or running code');
+      
+      let errorMessage = '⚠️ Error connecting to server or running code';
+      if (error.response?.data?.error) {
+        errorMessage = `❌ ${error.response.data.error}`;
+      } else if (error.response?.status === 500) {
+        errorMessage = '❌ Server error occurred while running code';
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = '❌ Network error - please check your connection';
+      }
+      
+      setOutput(errorMessage);
       setAiFeedback('');
     } finally {
       setIsRunning(false);

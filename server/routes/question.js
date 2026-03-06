@@ -2,8 +2,12 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Apply authentication middleware to all routes
+router.use(authMiddleware);
 
 // Initialize Google Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);

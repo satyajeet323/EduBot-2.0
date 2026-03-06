@@ -6,17 +6,23 @@ import subprocess
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # === Flask App Setup ===
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend connection
+CORS(app, origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"])  # Restrict CORS origins
 
 # === Configuration ===
 DB_FOLDER = 'sessions'
 os.makedirs(DB_FOLDER, exist_ok=True)
 
 # === Gemini API Configuration ===
-GEMINI_API_KEY = "AIzaSyB2VDk8MZ2Fh4i3XgICSz2M3TZwu-VGq_A"  # Replace with your real key
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY environment variable is required")
 genai.configure(api_key=GEMINI_API_KEY)
 network_model = genai.GenerativeModel("models/gemini-2.5-flash-lite")
 sql_model = genai.GenerativeModel("models/gemini-2.5-flash-lite")
@@ -306,54 +312,156 @@ def run_code():
     if not code or not language or not question:
         return jsonify({'error': 'Missing code, language, or question'}), 400
 
+    # Create temp directory for code files
+    temp_dir = os.path.join(os.getcwd(), 'temp_code')
+    os.makedirs(temp_dir, exist_ok=True)
+
     filename = ''
     run_cmd = ''
-    volume_path = os.getcwd().replace("\\", "/")
+    volume_path = temp_dir.replace("\\", "/")
     unique_id = str(uuid.uuid4())[:8]
 
     if language == 'python':
         filename = f'{unique_id}.py'
         run_cmd = f'python /code/{filename}'
         docker_image = 'python:3.9'
+        local_cmd = f'python {filename}'
     elif language == 'c':
         filename = f'{unique_id}.c'
         run_cmd = f'/bin/sh -c "gcc /code/{filename} -o /code/a.out && /code/a.out"'
         docker_image = 'gcc'
+        local_cmd = f'gcc {filename} -o {unique_id}.exe && {unique_id}.exe'
     elif language == 'cpp':
         filename = f'{unique_id}.cpp'
         run_cmd = f'/bin/sh -c "g++ /code/{filename} -o /code/a.out && /code/a.out"'
         docker_image = 'gcc'
+        local_cmd = f'g++ {filename} -o {unique_id}.exe && {unique_id}.exe'
     elif language == 'java':
         filename = f'Main{unique_id}.java'
         run_cmd = f'/bin/sh -c "javac /code/{filename} && java -cp /code Main{unique_id}"'
         docker_image = 'openjdk'
+        local_cmd = f'javac {filename} && java Main{unique_id}'
     else:
         return jsonify({'error': 'Unsupported language'}), 400
 
-    file_path = os.path.join(os.getcwd(), filename)
-    with open(file_path, 'w') as f:
-        f.write(code)
-
+    file_path = os.path.join(temp_dir, filename)
+    
     try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(code)
+    except Exception as e:
+        return jsonify({'error': f'Failed to write code file: {str(e)}'}), 500
+
+    output = ''
+    execution_method = 'docker'  # Track which method was used
+    
+    try:
+        # First try Docker execution
         docker_command = f'docker run --rm -v "{volume_path}:/code" {docker_image} {run_cmd}'
+        print(f"Attempting Docker execution: {docker_image}")
+        
         result = subprocess.run(
             docker_command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=10,
-            shell=True
+            timeout=15,
+            shell=True,
+            text=True
         )
-        output = result.stdout.decode('utf-8') + result.stderr.decode('utf-8')
-    except subprocess.TimeoutExpired:
-        output = 'Error: Execution timed out'
+        
+        # Check if Docker error is about Docker not running
+        if 'cannot find the file specified' in result.stderr.lower() or 'docker daemon' in result.stderr.lower():
+            raise FileNotFoundError("Docker is not running")
+        
+        output = result.stdout + result.stderr
+        
+        if result.returncode != 0 and not output.strip():
+            raise subprocess.CalledProcessError(result.returncode, docker_command)
+            
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
+        error_msg = str(e).lower()
+        print(f"Docker execution failed: {str(e)}")
+        
+        # Fallback to local execution
+        if language == 'python':
+            try:
+                print(f"Falling back to local Python execution")
+                execution_method = 'local'
+                result = subprocess.run(
+                    local_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=10,
+                    shell=True,
+                    text=True,
+                    cwd=temp_dir
+                )
+                output = result.stdout + result.stderr
+                if not output.strip() and result.returncode == 0:
+                    output = "Code executed successfully (no output)"
+            except subprocess.TimeoutExpired:
+                output = 'Error: Code execution timed out (10 seconds)'
+            except Exception as local_e:
+                output = f'Error: Local Python execution failed - {str(local_e)}\n\nPlease ensure Python is installed and in your PATH.'
+        elif language in ['c', 'cpp']:
+            # Try local GCC/G++ if available
+            try:
+                print(f"Attempting local {language.upper()} compilation")
+                execution_method = 'local'
+                result = subprocess.run(
+                    local_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=15,
+                    shell=True,
+                    text=True,
+                    cwd=temp_dir
+                )
+                output = result.stdout + result.stderr
+                if not output.strip() and result.returncode == 0:
+                    output = "Code executed successfully (no output)"
+            except Exception as local_e:
+                output = f'Docker is not running and local {language.upper()} compiler not found.\n\nTo run {language.upper()} code:\n1. Install Docker Desktop and start it, OR\n2. Install MinGW (for Windows) or GCC (for Linux/Mac)'
+        elif language == 'java':
+            # Try local Java if available
+            try:
+                print(f"Attempting local Java compilation")
+                execution_method = 'local'
+                result = subprocess.run(
+                    local_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=15,
+                    shell=True,
+                    text=True,
+                    cwd=temp_dir
+                )
+                output = result.stdout + result.stderr
+                if not output.strip() and result.returncode == 0:
+                    output = "Code executed successfully (no output)"
+            except Exception as local_e:
+                output = f'Docker is not running and local Java compiler not found.\n\nTo run Java code:\n1. Install Docker Desktop and start it, OR\n2. Install JDK (Java Development Kit)'
+        else:
+            output = f'Error: Docker is not running and local execution not supported for {language}.\n\nPlease start Docker Desktop to run {language} code.'
+    
+    except Exception as e:
+        output = f'Error: Unexpected execution error - {str(e)}'
+    
     finally:
         # Clean up files
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        if os.path.exists(os.path.join(os.getcwd(), 'a.out')):
-            os.remove('a.out')
-        if os.path.exists(os.path.join(os.getcwd(), f'Main{unique_id}.class')):
-            os.remove(f'Main{unique_id}.class')
+        cleanup_files = [
+            file_path,
+            os.path.join(temp_dir, 'a.out'),
+            os.path.join(temp_dir, f'{unique_id}.exe'),
+            os.path.join(temp_dir, f'Main{unique_id}.class')
+        ]
+        
+        for cleanup_file in cleanup_files:
+            try:
+                if os.path.exists(cleanup_file):
+                    os.remove(cleanup_file)
+            except Exception as cleanup_e:
+                print(f"Warning: Failed to cleanup {cleanup_file}: {str(cleanup_e)}")
 
     # Gemini Evaluation
     eval_prompt = f"""
@@ -381,14 +489,155 @@ def run_code():
     except Exception as e:
         ai_feedback = f"AI Evaluation Failed: {str(e)}"
 
+    # Add execution method info to output
+    if execution_method == 'local':
+        output = f"[Executed locally - Docker not available]\n\n{output}"
+    
+    return jsonify({
+        'output': output,
+        'ai_feedback': ai_feedback,
+        'execution_method': execution_method
+    })
+    {code}
+    ```
+
+    **Output:**
+    {output}
+
+    Give a clear, concise evaluation: is the code correct, are there logic flaws, what edge cases are missing, and how can it be improved?
+    """
+
+    try:
+        gemini_response = coding_model.generate_content(eval_prompt)
+        ai_feedback = gemini_response.text
+    except Exception as e:
+        ai_feedback = f"AI Evaluation Failed: {str(e)}"
+
     return jsonify({
         'output': output,
         'ai_feedback': ai_feedback
     })
 
 # =============================================================================
-# MAIN APPLICATION
+# FLUENCY ROUTES - English Fluency Assessment
 # =============================================================================
 
+@app.route('/api/fluency/topic', methods=['GET'])
+def generate_fluency_topic():
+    """Generate a topic for English fluency assessment"""
+    try:
+        prompt = "Give a single open-ended topic related to technologies, current events, or general knowledge that would be suitable for a 1-minute English speaking assessment. Reply with topic only, no additional text."
+        
+        response = coding_model.generate_content(prompt)
+        topic = response.text.strip()
+        
+        if not topic:
+            raise ValueError("Empty topic generated")
+            
+        return jsonify({"topic": topic})
+    except Exception as e:
+        print(f"Error generating fluency topic: {str(e)}")
+        # Fallback topics if AI fails
+        fallback_topics = [
+            "Describe the impact of social media on modern communication",
+            "Explain the benefits and challenges of remote work",
+            "Discuss the role of artificial intelligence in education",
+            "Share your thoughts on sustainable living and environmental protection",
+            "Describe how technology has changed the way we learn new skills"
+        ]
+        import random
+        return jsonify({"topic": random.choice(fallback_topics)})
+
+@app.route('/api/fluency/upload', methods=['POST'])
+def upload_fluency_audio():
+    """Process uploaded audio for fluency assessment"""
+    try:
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No audio file provided'}), 400
+            
+        audio_file = request.files['audio']
+        if audio_file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+            
+        # Create temp directory for audio files
+        temp_dir = os.path.join(os.getcwd(), 'temp_audio')
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        # Save uploaded file
+        file_id = str(uuid.uuid4())[:8]
+        filename = f"fluency_{file_id}.webm"
+        file_path = os.path.join(temp_dir, filename)
+        audio_file.save(file_path)
+        
+        # For now, return a mock response since we don't have the full fluency processing
+        # In a real implementation, you would process the audio with Whisper and analyze prosody
+        mock_transcript = "This is a mock transcript. The actual implementation would use Whisper ASR to transcribe the audio and analyze speech patterns for fluency assessment."
+        
+        mock_prosody = {
+            "duration_sec": 45.2,
+            "speech_rate_wpm": 120,
+            "syllable_nuclei_count": 85,
+            "nPVI": 35.4,
+            "pause_ratio": 0.08,
+            "total_pause_s": 3.6,
+            "fillers": {
+                "total_count": 2,
+                "details": ["um", "uh"]
+            }
+        }
+        
+        # Clean up the uploaded file
+        try:
+            os.remove(file_path)
+        except:
+            pass
+            
+        return jsonify({
+            "transcript": mock_transcript,
+            "prosody": mock_prosody,
+            "file_id": file_id
+        })
+        
+    except Exception as e:
+        print(f"Error processing fluency audio: {str(e)}")
+        return jsonify({'error': f'Failed to process audio: {str(e)}'}), 500
+
+@app.route('/api/fluency/score', methods=['POST'])
+def score_fluency():
+    """Score fluency based on transcript and prosody data"""
+    try:
+        data = request.get_json()
+        transcript = data.get('transcript', '')
+        topic = data.get('topic', '')
+        prosody = data.get('prosody', {})
+        
+        if not transcript or not topic:
+            return jsonify({'error': 'Transcript and topic are required'}), 400
+            
+        # For now, return mock scores
+        # In a real implementation, this would use the Gemini API to analyze the transcript
+        mock_score = {
+            "vocabulary_score": 7,
+            "grammar_score": 8,
+            "sentence_correctness_score": 7,
+            "coherence_score": 6,
+            "clarity_score": 8,
+            "relevance_score": 7,
+            "speech_rate_score": 8,
+            "pause_time_score": 7,
+            "pitch_variability_score": 6,
+            "rhythm_variability_score": 7,
+            "fillers_score": 8,
+            "grammatical_mistake": "Minor issues with article usage. Consider using 'the' before specific nouns.",
+            "improvement_needed": "Good overall fluency! To improve further:\n1. Reduce filler words like 'um' and 'uh'\n2. Work on maintaining consistent speech pace\n3. Practice using more varied vocabulary\n4. Focus on clear pronunciation of consonant clusters"
+        }
+        
+        return jsonify({"score": mock_score})
+        
+    except Exception as e:
+        print(f"Error scoring fluency: {str(e)}")
+        return jsonify({'error': f'Failed to score fluency: {str(e)}'}), 500
+
 if __name__ == '__main__':
-    app.run(port=5001, debug=True)
+    # Run without debug mode to avoid file watching issues
+    app.run(port=5001, debug=False, host='127.0.0.1')

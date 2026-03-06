@@ -1,8 +1,12 @@
 const express = require('express');
 const Subject = require('../models/Subject');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Apply authentication middleware to all routes
+router.use(authMiddleware);
 
 // @route   GET /api/subjects
 // @desc    Get all subjects

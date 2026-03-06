@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -38,8 +39,8 @@ const upload = multer({
 
 // @route   POST /api/face-recognition/detect
 // @desc    Detect faces in uploaded image
-// @access  Public
-router.post('/detect', upload.single('image'), asyncHandler(async (req, res) => {
+// @access  Private
+router.post('/detect', authMiddleware, upload.single('image'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
       status: 'error',
@@ -74,8 +75,8 @@ router.post('/detect', upload.single('image'), asyncHandler(async (req, res) => 
 
 // @route   POST /api/face-recognition/compare
 // @desc    Compare two face descriptors
-// @access  Public
-router.post('/compare', asyncHandler(async (req, res) => {
+// @access  Private
+router.post('/compare', authMiddleware, asyncHandler(async (req, res) => {
   const { descriptor1, descriptor2 } = req.body;
 
   if (!descriptor1 || !descriptor2) {
@@ -116,7 +117,7 @@ router.post('/compare', asyncHandler(async (req, res) => {
 // @route   POST /api/face-recognition/register
 // @desc    Register a new face for a user
 // @access  Private
-router.post('/register', upload.single('image'), asyncHandler(async (req, res) => {
+router.post('/register', authMiddleware, upload.single('image'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
       status: 'error',
@@ -193,7 +194,7 @@ router.post('/register', upload.single('image'), asyncHandler(async (req, res) =
 // @route   DELETE /api/face-recognition/register
 // @desc    Remove face registration for a user
 // @access  Private
-router.delete('/register', asyncHandler(async (req, res) => {
+router.delete('/register', authMiddleware, asyncHandler(async (req, res) => {
   const User = require('../models/User');
   
   // Get current user to check if they have an avatar
@@ -232,7 +233,7 @@ router.delete('/register', asyncHandler(async (req, res) => {
 // @route   GET /api/face-recognition/status
 // @desc    Check if user has face registered
 // @access  Private
-router.get('/status', asyncHandler(async (req, res) => {
+router.get('/status', authMiddleware, asyncHandler(async (req, res) => {
   const User = require('../models/User');
   const user = await User.findById(req.user.id);
 

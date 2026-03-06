@@ -12,9 +12,10 @@ import DBMSQuiz from './pages/DBMSQuiz'
 import Profile from './pages/Profile'
 import FaceLogin from './pages/FaceLogin'
 import NetworkingPlayground from './pages/NetworkingPlayground'
-import CodeEditor from './pages/CodeEditor' // Add this import
+import CodeEditor from './pages/CodeEditor'
 import Splash from './pages/Splash'
 import LoadingSpinner from './components/LoadingSpinner'
+import SessionDebug from './components/SessionDebug'
 // Add these imports
 import ComputerNetworkSyllabus from './pages/syllabus/ComputerNetworkSyllabus';
 import DBMSSyllabus from './pages/syllabus/DBMSSyllabus';
@@ -22,6 +23,7 @@ import PythonSyllabus from './pages/syllabus/PythonSyllabus';
 import JavaSyllabus from './pages/syllabus/JavaSyllabus';
 import CppSyllabus from './pages/syllabus/CppSyllabus';
 import CSyllabus from './pages/syllabus/CSyllabus';
+import EnglishFluencyRecorder from './EnglishFluencyRecorder' // Add this import
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -121,6 +123,15 @@ function AppRoutes() {
       }>
         <Route index element={<CodeEditor />} />
       </Route>
+
+      {/* English Fluency Recorder Route */}
+      <Route path="/english-fluency" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<EnglishFluencyRecorder />} />
+      </Route>
       
       <Route path="/profile" element={
         <ProtectedRoute>
@@ -130,55 +141,54 @@ function AppRoutes() {
         <Route index element={<Profile />} />
       </Route>
 
+      {/* Syllabus Routes */}
+      <Route path="/syllabus/computer-network" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<ComputerNetworkSyllabus />} />
+      </Route>
 
-      // Add these routes inside your Routes component
-<Route path="/syllabus/computer-network" element={
-  <ProtectedRoute>
-    <Layout />
-  </ProtectedRoute>
-}>
-  <Route index element={<ComputerNetworkSyllabus />} />
-</Route>
+      <Route path="/syllabus/dbms" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<DBMSSyllabus />} />
+      </Route>
 
-<Route path="/syllabus/dbms" element={
-  <ProtectedRoute>
-    <Layout />
-  </ProtectedRoute>
-}>
-  <Route index element={<DBMSSyllabus />} />
-</Route>
+      <Route path="/syllabus/python" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<PythonSyllabus />} />
+      </Route>
 
-<Route path="/syllabus/python" element={
-  <ProtectedRoute>
-    <Layout />
-  </ProtectedRoute>
-}>
-  <Route index element={<PythonSyllabus />} />
-</Route>
+      <Route path="/syllabus/java" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<JavaSyllabus />} />
+      </Route>
 
-<Route path="/syllabus/java" element={
-  <ProtectedRoute>
-    <Layout />
-  </ProtectedRoute>
-}>
-  <Route index element={<JavaSyllabus />} />
-</Route>
+      <Route path="/syllabus/cpp" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<CppSyllabus />} />
+      </Route>
 
-<Route path="/syllabus/cpp" element={
-  <ProtectedRoute>
-    <Layout />
-  </ProtectedRoute>
-}>
-  <Route index element={<CppSyllabus />} />
-</Route>
-
-<Route path="/syllabus/c-programming" element={
-  <ProtectedRoute>
-    <Layout />
-  </ProtectedRoute>
-}>
-  <Route index element={<CSyllabus />} />
-</Route>
+      <Route path="/syllabus/c-programming" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<CSyllabus />} />
+      </Route>
       
       {/* Redirect root to dashboard */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -186,14 +196,13 @@ function AppRoutes() {
       {/* Catch all route */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
-
-
   )
 }
 
 function App() {
   return (
     <AuthProvider>
+      <SessionDebug />
       <AppRoutes />
     </AuthProvider>
   )
