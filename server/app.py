@@ -498,25 +498,6 @@ def run_code():
         'ai_feedback': ai_feedback,
         'execution_method': execution_method
     })
-    {code}
-    ```
-
-    **Output:**
-    {output}
-
-    Give a clear, concise evaluation: is the code correct, are there logic flaws, what edge cases are missing, and how can it be improved?
-    """
-
-    try:
-        gemini_response = coding_model.generate_content(eval_prompt)
-        ai_feedback = gemini_response.text
-    except Exception as e:
-        ai_feedback = f"AI Evaluation Failed: {str(e)}"
-
-    return jsonify({
-        'output': output,
-        'ai_feedback': ai_feedback
-    })
 
 # =============================================================================
 # FLUENCY ROUTES - English Fluency Assessment
