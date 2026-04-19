@@ -218,7 +218,7 @@ const Dashboard = () => {
                 description="Check your detailed progress and performance analytics"
                 icon={BarChart3}
                 color="bg-blue-500"
-                onClick={() => {/* Navigate to progress */}}
+                onClick={() => navigate('/profile')}
               />
               <QuickActionCard
                 title="Browse Subjects"

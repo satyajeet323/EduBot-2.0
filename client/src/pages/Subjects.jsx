@@ -29,6 +29,8 @@ const Subjects = () => {
       textColor: 'text-blue-500',
       borderColor: 'border-blue-500',
       slug: 'computer-network',
+      actionLabel: 'Networking Playground',
+      actionLink: '/networking-playground',
       // difficulty: 'Intermediate'
     },
     {
@@ -40,6 +42,8 @@ const Subjects = () => {
       textColor: 'text-green-500',
       borderColor: 'border-green-500',
       slug: 'dbms',
+      actionLabel: 'DBMS Quiz',
+      actionLink: '/dbms-quiz',
       // difficulty: 'Intermediate'
     },
     {
@@ -51,6 +55,8 @@ const Subjects = () => {
       textColor: 'text-yellow-500',
       borderColor: 'border-yellow-500',
       slug: 'python',
+      actionLabel: 'Code Editor',
+      actionLink: '/code-editor',
       // difficulty: 'Beginner'
     },
     {
@@ -62,6 +68,8 @@ const Subjects = () => {
       textColor: 'text-red-500',
       borderColor: 'border-red-500',
       slug: 'java',
+      actionLabel: 'Code Editor',
+      actionLink: '/code-editor',
       // difficulty: 'Intermediate'
     },
     {
@@ -73,6 +81,8 @@ const Subjects = () => {
       textColor: 'text-purple-500',
       borderColor: 'border-purple-500',
       slug: 'cpp',
+      actionLabel: 'Code Editor',
+      actionLink: '/code-editor',
       // difficulty: 'Advanced'
     },
     {
@@ -84,6 +94,8 @@ const Subjects = () => {
       textColor: 'text-indigo-500',
       borderColor: 'border-indigo-500',
       slug: 'c-programming',
+      actionLabel: 'Code Editor',
+      actionLink: '/code-editor',
       // difficulty: 'Intermediate'
     }
   ]
@@ -152,6 +164,15 @@ const Subjects = () => {
               <FileText className="w-4 h-4 mr-2" />
               View Syllabus
             </Link>
+            {subject.actionLink && subject.actionLabel && (
+              <Link
+                to={subject.actionLink}
+                className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md ${subject.color} text-white font-medium hover:opacity-90 transition-opacity`}
+              >
+                <Play className="w-4 h-4 mr-2" />
+                {subject.actionLabel}
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -25,6 +25,7 @@ import CppSyllabus from './pages/syllabus/CppSyllabus';
 import CSyllabus from './pages/syllabus/CSyllabus';
 import EnglishFluencyRecorder from './EnglishFluencyRecorder'
 import MCQExam from './pages/MCQExam'
+import LandingPage from './pages/LandingPage'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -49,6 +50,8 @@ const PublicRoute = ({ children }) => {
 }
 
 function AppRoutes() {
+  const { user, loading } = useAuth()
+
   return (
     <Routes>
       {/* Public Routes */}
@@ -198,8 +201,14 @@ function AppRoutes() {
         <Route index element={<CSyllabus />} />
       </Route>
       
-      {/* Redirect root to dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* Root route: loading → spinner, authenticated → dashboard, unauthenticated → landing */}
+      <Route path="/" element={
+        loading
+          ? <LoadingSpinner />
+          : user
+            ? <Navigate to="/dashboard" replace />
+            : <LandingPage />
+      } />
       
       {/* Catch all route */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
