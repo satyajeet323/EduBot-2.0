@@ -531,29 +531,38 @@ def generate_fluency_topic():
 
 @app.route('/api/fluency/upload', methods=['POST'])
 def upload_fluency_audio():
-    """Process uploaded audio for fluency assessment"""
     try:
         if 'audio' not in request.files:
             return jsonify({'error': 'No audio file provided'}), 400
-            
+
         audio_file = request.files['audio']
         if audio_file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
-            
-        # Create temp directory for audio files
-        temp_dir = os.path.join(os.getcwd(), 'temp_audio')
-        os.makedirs(temp_dir, exist_ok=True)
+
+        # Use absolute path — avoids Windows CWD issues
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        temp_dir = os.path.join(base_dir, 'temp_audio')
         
-        # Save uploaded file
+        # Ensure directory exists
+        os.makedirs(temp_dir, exist_ok=True)
+        print(f"[DEBUG] temp_dir: {temp_dir}")
+        print(f"[DEBUG] temp_dir exists: {os.path.isdir(temp_dir)}")
+
         file_id = str(uuid.uuid4())[:8]
         filename = f"fluency_{file_id}.webm"
         file_path = os.path.join(temp_dir, filename)
+        print(f"[DEBUG] Saving to: {file_path}")
+
         audio_file.save(file_path)
-        
-        # For now, return a mock response since we don't have the full fluency processing
-        # In a real implementation, you would process the audio with Whisper and analyze prosody
-        mock_transcript = "This is a mock transcript. The actual implementation would use Whisper ASR to transcribe the audio and analyze speech patterns for fluency assessment."
-        
+        print(f"[DEBUG] File saved successfully")
+
+        # Clean up
+        try:
+            os.remove(file_path)
+        except:
+            pass
+
+        mock_transcript = "This is a mock transcript for testing."
         mock_prosody = {
             "duration_sec": 45.2,
             "speech_rate_wpm": 120,
@@ -561,28 +570,22 @@ def upload_fluency_audio():
             "nPVI": 35.4,
             "pause_ratio": 0.08,
             "total_pause_s": 3.6,
-            "fillers": {
-                "total_count": 2,
-                "details": ["um", "uh"]
-            }
+            "fillers": {"total_count": 2, "details": ["um", "uh"]}
         }
-        
-        # Clean up the uploaded file
-        try:
-            os.remove(file_path)
-        except:
-            pass
-            
+
         return jsonify({
             "transcript": mock_transcript,
             "prosody": mock_prosody,
             "file_id": file_id
         })
-        
+
     except Exception as e:
-        print(f"Error processing fluency audio: {str(e)}")
+        import traceback
+        print(f"[ERROR] Full traceback:\n{traceback.format_exc()}")
         return jsonify({'error': f'Failed to process audio: {str(e)}'}), 500
 
+
+        
 @app.route('/api/fluency/score', methods=['POST'])
 def score_fluency():
     """Score fluency based on transcript and prosody data"""
@@ -621,4 +624,4 @@ def score_fluency():
 
 if __name__ == '__main__':
     # Run without debug mode to avoid file watching issues
-    app.run(port=5001, debug=False, host='127.0.0.1')
+    app.run(port=6000, debug=False, host='127.0.0.1')

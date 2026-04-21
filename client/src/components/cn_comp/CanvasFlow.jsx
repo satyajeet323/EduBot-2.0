@@ -1,18 +1,5 @@
-import React, {
-  forwardRef,
-  useCallback,
-  useImperativeHandle,
-  useRef,
-  useState,
-  useEffect,
-} from "react";
-import ReactFlow, {
-  Background,
-  Controls,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-} from "react-flow-renderer";
+import React, { forwardRef, useCallback, useImperativeHandle, useRef, useState, useEffect } from "react";
+import ReactFlow, { Background, Controls, useNodesState, useEdgesState, addEdge } from "react-flow-renderer";
 import DeviceNode from "./DeviceNode";
 import { v4 as uuidv4 } from "uuid";
 import PCConfigDialog from "./PCConfigDialog";
@@ -20,821 +7,456 @@ import RouterConfigDialog from "./RouterConfigDialog";
 import ReactMarkdown from "react-markdown";
 import { practicalAPI } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
-
+import { Send, Eye, X, AlertCircle, CheckCircle, Loader, BookOpen, Zap } from "lucide-react";
 
 const nodeTypes = { deviceNode: DeviceNode };
-const initialNodes = [];
-const initialEdges = [];
+const getIsDark = () => document.documentElement.classList.contains("dark");
 
-const CanvasFlow = forwardRef(({ onNodeClick, selectedTool }, ref) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const reactFlowWrapper = useRef(null);
-  const [rfInstance, setRfInstance] = useState(null);
+function ThemedModal(props) {
+  var open = props.open;
+  var onClose = props.onClose;
+  var title = props.title;
+  var Icon = props.icon;
+  var accentHex = props.accentHex;
+  var children = props.children;
+  var dark = props.dark;
+  var maxW = props.maxW || 580;
 
-  // Undo and Redo stacks
-  const undoStack = useRef([]);
-  const redoStack = useRef([]);
+  if (!open) return null;
 
-  // Dialog states
-  const [configDialogOpen, setConfigDialogOpen] = useState(false);
-  const [configNode, setConfigNode] = useState(null);
+  var acc = accentHex || "#06b6d4";
+  var bg  = dark ? "#111827" : "#ffffff";
+  var bdr = dark ? acc + "44" : acc + "55";
+  var txt = dark ? "#f1f5f9" : "#0f172a";
+  var sub = dark ? "#64748b" : "#94a3b8";
 
-  const [routerDialogOpen, setRouterDialogOpen] = useState(false);
-  const [routerConfigNode, setRouterConfigNode] = useState(null);
-
-  // Evaluation result state (for temporary card)
-  const [evalResult, setEvalResult] = useState(null);
-  const [evalLoading, setEvalLoading] = useState(false);
-  const [evalError, setEvalError] = useState(null);
-
-  // Question modal state
-  const [introModalOpen, setIntroModalOpen] = useState(true);  // Show intro first
-  const [questionModalOpen, setQuestionModalOpen] = useState(false); // Question modal hidden initially
-  const [questionText, setQuestionText] = useState("");
-  const [questionLoading, setQuestionLoading] = useState(false);
-  const [questionError, setQuestionError] = useState(null);
-  const { updateUser } = useAuth();
-
-  // Undo/Redo logic (same as before)
-  const pushToUndoStack = (newNodes, newEdges) => {
-    const last = undoStack.current[undoStack.current.length - 1];
-    if (
-      last &&
-      JSON.stringify(last.nodes) === JSON.stringify(newNodes) &&
-      JSON.stringify(last.edges) === JSON.stringify(newEdges)
-    ) {
-      return;
-    }
-    undoStack.current.push({ nodes: newNodes, edges: newEdges });
-    if (undoStack.current.length > 50) undoStack.current.shift();
-    redoStack.current = [];
-  };
-
-  const updateNodes = (updater) => {
-    setNodes((nds) => {
-      const updated = typeof updater === "function" ? updater(nds) : updater;
-      pushToUndoStack(updated, edges);
-      return updated;
-    });
-  };
-
-  const updateEdges = (updater) => {
-    setEdges((eds) => {
-      const updated = typeof updater === "function" ? updater(eds) : updater;
-      pushToUndoStack(nodes, updated);
-      return updated;
-    });
-  };
-
-  const undo = () => {
-    if (undoStack.current.length === 0) return;
-    const current = { nodes, edges };
-    const previous = undoStack.current.pop();
-    if (previous) {
-      const isEmpty = previous.nodes.length === 0 && previous.edges.length === 0;
-      if (isEmpty) {
-        undoStack.current = [{ nodes: [], edges: [] }];
-        redoStack.current = [];
-      } else {
-        redoStack.current.push(current);
-      }
-      setNodes(previous.nodes);
-      setEdges(previous.edges);
-    }
-  };
-
-  const redo = () => {
-    if (redoStack.current.length === 0) return;
-    const current = { nodes, edges };
-    const next = redoStack.current.pop();
-    if (next) {
-      undoStack.current.push(current);
-      setNodes(next.nodes);
-      setEdges(next.edges);
-    }
-  };
-
-  useImperativeHandle(ref, () => ({
-    exportNetwork: () => buildNetworkJSON(nodes, edges),
-    undo,
-    redo,
-  }));
-
-  useEffect(() => {
-    pushToUndoStack(initialNodes, initialEdges);
-  }, []);
-
-  useEffect(() => {
-    const handler = (e) => {
-      const { id, data } = e.detail;
-      setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data } : n)));
-    };
-    window.addEventListener("edubot:updateNodeData", handler);
-    return () => window.removeEventListener("edubot:updateNodeData", handler);
-  }, [setNodes]);
-
- const handleInit = (instance) => {
-  setRfInstance(instance);
-  instance.setViewport({ x: 0, y: 0, zoom: 0.8 });  // Apply initial viewport properly
-};
-
-
-  const handleOnConnectDrag = useCallback(
-    (params) => {
-      const edgeParams = {
-        ...params,
-        style: { stroke: "#ff0000", strokeWidth: 3 },
-        type: "smoothstep",
-      };
-      updateEdges((eds) => addEdge(edgeParams, eds));
+  return React.createElement("div",
+    {
+      style: { position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:50, backdropFilter:"blur(6px)" },
+      onClick: onClose
     },
-    [updateEdges]
-  );
-
-  const onDrop = useCallback(
-    (event) => {
-      event.preventDefault();
-      const bounds = reactFlowWrapper.current.getBoundingClientRect();
-      const data = event.dataTransfer.getData("application/reactflow");
-      if (!data) return;
-      const parsed = JSON.parse(data);
-      if (!rfInstance) return;
-
-      const position = rfInstance.project({
-        x: event.clientX - bounds.left,
-        y: event.clientY - bounds.top,
-      });
-
-      const id = `${parsed.type}-${uuidv4().slice(0, 6)}`;
-const baseNode = {
-  id,
-  type: "deviceNode",
-  position,
-  data: {
-    label: `${parsed.label}-${id.slice(-4)}`,
-    deviceType: parsed.type,
-    interfaces:
-      parsed.type === "pc"
-        ? [{ name: "eth0", ip: "", subnetMask: "255.255.255.0", gateway: "" }]
-        : parsed.type === "router"
-        ? [
-            { name: "interfaceA", ip: "", subnetMask: "255.255.255.0" },
-            { name: "interfaceB", ip: "", subnetMask: "255.255.255.0" }
-          ]
-        : [],
-    ports: parsed.type === "switch" ? 8 : parsed.type === "router" ? 4 : undefined,
-  },
-};
-
-
-      updateNodes((nds) => nds.concat(baseNode));
-    },
-    [rfInstance, updateNodes]
-  );
-
-  const onDragOver = useCallback((event) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }, []);
-
-  const handleNodeClick = (evt, node) => {
-    evt.preventDefault();
-    evt.stopPropagation();
-    if (selectedTool !== "wire" && onNodeClick) onNodeClick(node);
-  };
-
-  const handleNodeDoubleClick = useCallback(
-    (evt, node) => {
-      evt.preventDefault();
-      evt.stopPropagation();
-      if (node.type === "deviceNode") {
-        if (node.data.deviceType === "pc") {
-          setConfigNode(node);
-          setConfigDialogOpen(true);
-        } else if (node.data.deviceType === "router") {
-          setRouterConfigNode(node);
-          setRouterDialogOpen(true);
-        }
-      }
-    },
-    []
-  );
-
-  // Save PC config data (ip, subnet, gateway) inside interfaces[0]
-  const handleSaveConfig = (newData) => {
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.id === configNode.id
-          ? {
-              ...n,
-              data: {
-                ...n.data,
-                interfaces: [
-                  {
-                    ...n.data.interfaces[0],
-                    ip: newData.ip,
-                    subnetMask: newData.subnetMask,
-                    gateway: newData.gateway,
-                  },
-                ],
-              },
-            }
-          : n
-      )
-    );
-    setConfigDialogOpen(false);
-    setConfigNode(null);
-  };
-
-  const handleCancelConfig = () => {
-    setConfigDialogOpen(false);
-    setConfigNode(null);
-  };
-
-  // Save Router config data (interfaceA and interfaceB) inside interfaces[0]
-const handleSaveRouterConfig = (newData) => {
-  setNodes((nds) =>
-    nds.map((n) =>
-      n.id === routerConfigNode.id
-        ? {
-            ...n,
-            data: {
-              ...n.data,
-              interfaces: [
-                { ...n.data.interfaces[0], ip: newData.interfaceA, subnetMask: "255.255.255.0" },
-                { ...n.data.interfaces[1], ip: newData.interfaceB, subnetMask: "255.255.255.0" }
-              ],
-            },
-          }
-        : n
+    React.createElement("div",
+      {
+        style: { background:bg, border:"1px solid "+bdr, borderRadius:14, width:"min("+maxW+"px,92vw)", maxHeight:"80vh", overflowY:"auto", padding:"24px 28px", boxShadow:"0 24px 48px rgba(0,0,0,0.5)", display:"flex", flexDirection:"column", gap:16 },
+        onClick: function(e) { e.stopPropagation(); }
+      },
+      React.createElement("div",
+        { style: { display:"flex", alignItems:"center", justifyContent:"space-between" } },
+        React.createElement("div",
+          { style: { display:"flex", alignItems:"center", gap:10 } },
+          Icon && React.createElement("div",
+            { style: { width:32, height:32, borderRadius:8, background:acc+"18", border:"1px solid "+acc+"35", display:"flex", alignItems:"center", justifyContent:"center" } },
+            React.createElement(Icon, { size:16, color:acc })
+          ),
+          React.createElement("div", { style: { color:txt, fontWeight:700, fontSize:15 } }, title)
+        ),
+        React.createElement("button",
+          {
+            onClick: onClose,
+            style: { background:"transparent", border:"none", cursor:"pointer", color:sub, padding:4, borderRadius:6, display:"flex" }
+          },
+          React.createElement(X, { size:16 })
+        )
+      ),
+      React.createElement("div", { style: { height:1, background:bdr } }),
+      children({ txt:txt, sub:sub, bdr:bdr, acc:acc })
     )
   );
-  setRouterDialogOpen(false);
-  setRouterConfigNode(null);
-};
+}
 
+var CanvasFlow = forwardRef(function(props, ref) {
+  var onNodeClick = props.onNodeClick;
 
-  const handleCancelRouterConfig = () => {
-    setRouterDialogOpen(false);
-    setRouterConfigNode(null);
-  };
+  var nodesState = useNodesState([]);
+  var nodes = nodesState[0];
+  var setNodes = nodesState[1];
+  var onNodesChange = nodesState[2];
 
-  // --- Submit network for evaluation ---
-  const handleSubmitNetwork = () => {
-    const networkJSON = buildNetworkJSON(nodes, edges);
-    setEvalLoading(true);
-    setEvalError(null);
-    setEvalResult(null);
+  var edgesState = useEdgesState([]);
+  var edges = edgesState[0];
+  var setEdges = edgesState[1];
+  var onEdgesChange = edgesState[2];
 
-    fetch("http://localhost:5001/evaluate-network", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({config: networkJSON, question: questionText}),
-    })
-.then((res) => {
-  if (!res.ok) {
-    return res.text().then(text => {
-      throw new Error(`Server error: ${res.status} ${res.statusText} - ${text}`);
+  var reactFlowWrapper = useRef(null);
+  var rfInstanceState = useState(null);
+  var rfInstance = rfInstanceState[0];
+  var setRfInstance = rfInstanceState[1];
+
+  var undoStack = useRef([]);
+  var redoStack = useRef([]);
+
+  var configState = useState(false);
+  var configDialogOpen = configState[0];
+  var setConfigDialogOpen = configState[1];
+
+  var configNodeState = useState(null);
+  var configNode = configNodeState[0];
+  var setConfigNode = configNodeState[1];
+
+  var routerState = useState(false);
+  var routerDialogOpen = routerState[0];
+  var setRouterDialogOpen = routerState[1];
+
+  var routerNodeState = useState(null);
+  var routerConfigNode = routerNodeState[0];
+  var setRouterConfigNode = routerNodeState[1];
+
+  var evalResultState = useState(null);
+  var evalResult = evalResultState[0];
+  var setEvalResult = evalResultState[1];
+
+  var evalLoadingState = useState(false);
+  var evalLoading = evalLoadingState[0];
+  var setEvalLoading = evalLoadingState[1];
+
+  var evalErrorState = useState(null);
+  var evalError = evalErrorState[0];
+  var setEvalError = evalErrorState[1];
+
+  var introState = useState(true);
+  var introOpen = introState[0];
+  var setIntroOpen = introState[1];
+
+  var qOpenState = useState(false);
+  var questionOpen = qOpenState[0];
+  var setQuestionOpen = qOpenState[1];
+
+  var qTextState = useState("");
+  var questionText = qTextState[0];
+  var setQuestionText = qTextState[1];
+
+  var qLoadState = useState(false);
+  var questionLoading = qLoadState[0];
+  var setQuestionLoading = qLoadState[1];
+
+  var qErrState = useState(null);
+  var questionError = qErrState[0];
+  var setQuestionError = qErrState[1];
+
+  var darkState = useState(getIsDark);
+  var dark = darkState[0];
+  var setDark = darkState[1];
+
+  var authCtx = useAuth();
+  var updateUser = authCtx.updateUser;
+
+  useEffect(function() {
+    var obs = new MutationObserver(function() { setDark(getIsDark()); });
+    obs.observe(document.documentElement, { attributes:true, attributeFilter:["class"] });
+    return function() { obs.disconnect(); };
+  }, []);
+
+  function pushUndo(nds, eds) {
+    var last = undoStack.current[undoStack.current.length - 1];
+    if (last && JSON.stringify(last.nodes) === JSON.stringify(nds) && JSON.stringify(last.edges) === JSON.stringify(eds)) return;
+    undoStack.current.push({ nodes:nds, edges:eds });
+    if (undoStack.current.length > 50) undoStack.current.shift();
+    redoStack.current = [];
+  }
+
+  function updateNodes(fn) {
+    setNodes(function(nds) {
+      var u = typeof fn === "function" ? fn(nds) : fn;
+      pushUndo(u, edges);
+      return u;
     });
   }
-  return res.json();
-})
 
-      .then(async (data) => {
-        setEvalLoading(false);
-        setEvalResult(data);
-        // Derive a 0-5 performance score from Gemini evaluation string
-        try {
-          let score = 0;
-          const text = (data?.evaluation || '').toString();
-          const m = text.match(/(\b[0-5])\s*\/\s*5|score\s*[:\-]?\s*(\d+)/i);
-          if (m) {
-            const val = Number(m[1] || m[2]);
-            if (!Number.isNaN(val)) score = Math.max(0, Math.min(5, Math.round(val)));
-          }
-          const submitRes = await practicalAPI.submit({
-            subject: 'computerNetworks',
-            task: questionText || 'Networking Practical',
-            performanceScore: score,
-            meta: { rawEvaluation: text }
-          });
-          const updatedUser = {
-            ...(JSON.parse(sessionStorage.getItem('user')) || {}),
-            progress: submitRes.data.data.progress,
-            moduleProgress: submitRes.data.data.moduleProgress,
-            streak: submitRes.data.data.streak,
-            lastSolvedDate: submitRes.data.data.lastSolvedDate
-          };
-          sessionStorage.setItem('user', JSON.stringify(updatedUser));
-          updateUser(updatedUser);
-        } catch (e) {
-          console.error('Practical submit failed:', e);
-        }
-      })
-      .catch((err) => {
-        setEvalLoading(false);
-        setEvalError(err.message || "Unknown error");
+  function updateEdges(fn) {
+    setEdges(function(eds) {
+      var u = typeof fn === "function" ? fn(eds) : fn;
+      pushUndo(nodes, u);
+      return u;
+    });
+  }
+
+  function undo() {
+    if (!undoStack.current.length) return;
+    var prev = undoStack.current.pop();
+    redoStack.current.push({ nodes:nodes, edges:edges });
+    setNodes(prev.nodes);
+    setEdges(prev.edges);
+  }
+
+  function redo() {
+    if (!redoStack.current.length) return;
+    var next = redoStack.current.pop();
+    undoStack.current.push({ nodes:nodes, edges:edges });
+    setNodes(next.nodes);
+    setEdges(next.edges);
+  }
+
+  useImperativeHandle(ref, function() {
+    return { exportNetwork: function() { return buildNetworkJSON(nodes, edges); }, undo:undo, redo:redo };
+  });
+
+  useEffect(function() { pushUndo([], []); }, []);
+
+  useEffect(function() {
+    function h(e) {
+      var id = e.detail.id;
+      var data = e.detail.data;
+      setNodes(function(nds) { return nds.map(function(n) { return n.id === id ? Object.assign({}, n, { data:data }) : n; }); });
+    }
+    window.addEventListener("edubot:updateNodeData", h);
+    return function() { window.removeEventListener("edubot:updateNodeData", h); };
+  }, [setNodes]);
+
+  function handleInit(inst) {
+    setRfInstance(inst);
+    inst.setViewport({ x:0, y:0, zoom:0.8 });
+  }
+
+  var onConnect = useCallback(function(params) {
+    updateEdges(function(eds) {
+      return addEdge(Object.assign({}, params, { style:{ stroke:"#06b6d4", strokeWidth:2 }, type:"smoothstep", animated:true }), eds);
+    });
+  }, [updateEdges]);
+
+  var onDrop = useCallback(function(e) {
+    e.preventDefault();
+    var bounds = reactFlowWrapper.current.getBoundingClientRect();
+    var raw = e.dataTransfer.getData("application/reactflow");
+    if (!raw || !rfInstance) return;
+    var parsed = JSON.parse(raw);
+    var position = rfInstance.project({ x: e.clientX - bounds.left, y: e.clientY - bounds.top });
+    var id = parsed.type + "-" + uuidv4().slice(0, 6);
+    var ifaces = parsed.type === "pc"
+      ? [{ name:"eth0", ip:"", subnetMask:"255.255.255.0", gateway:"" }]
+      : parsed.type === "router"
+      ? [{ name:"ifA", ip:"", subnetMask:"255.255.255.0" }, { name:"ifB", ip:"", subnetMask:"255.255.255.0" }]
+      : [];
+    updateNodes(function(nds) {
+      return nds.concat([{
+        id:id, type:"deviceNode", position:position,
+        data:{ label:parsed.label+"-"+id.slice(-4), deviceType:parsed.type, interfaces:ifaces, ports: parsed.type==="switch"?8:parsed.type==="router"?4:undefined }
+      }]);
+    });
+  }, [rfInstance, updateNodes]);
+
+  var onDragOver = useCallback(function(e) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }, []);
+
+  var handleNodeDoubleClick = useCallback(function(e, node) {
+    e.preventDefault(); e.stopPropagation();
+    if (node.data.deviceType === "pc") { setConfigNode(node); setConfigDialogOpen(true); }
+    else if (node.data.deviceType === "router") { setRouterConfigNode(node); setRouterDialogOpen(true); }
+  }, []);
+
+  function handleSaveConfig(d) {
+    setNodes(function(nds) {
+      return nds.map(function(n) {
+        if (n.id !== configNode.id) return n;
+        var iface = Object.assign({}, n.data.interfaces[0], { ip:d.ip, subnetMask:d.subnetMask, gateway:d.gateway });
+        return Object.assign({}, n, { data: Object.assign({}, n.data, { interfaces:[iface] }) });
       });
-  };
+    });
+    setConfigDialogOpen(false); setConfigNode(null);
+  }
 
-  // --- Fetch generated question on mount ---
+  function handleSaveRouterConfig(d) {
+    setNodes(function(nds) {
+      return nds.map(function(n) {
+        if (n.id !== routerConfigNode.id) return n;
+        var ifA = Object.assign({}, n.data.interfaces[0], { ip:d.interfaceA, subnetMask:"255.255.255.0" });
+        var ifB = Object.assign({}, n.data.interfaces[1], { ip:d.interfaceB, subnetMask:"255.255.255.0" });
+        return Object.assign({}, n, { data: Object.assign({}, n.data, { interfaces:[ifA, ifB] }) });
+      });
+    });
+    setRouterDialogOpen(false); setRouterConfigNode(null);
+  }
 
-
-  const fetchQuestion = () => {
-    setQuestionLoading(true);
-    setQuestionError(null);
-
-    fetch("http://localhost:5001/generate-network-question")
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to fetch question: ${res.statusText}`);
-        return res.json();
-      })
-      .then((data) => {
-        if (data.status === "success" && data.question) {
-          setQuestionText(data.question);
-          setQuestionModalOpen(true);
-        } else {
-          throw new Error("Invalid question response");
-        }
+  function fetchQuestion() {
+    setQuestionLoading(true); setQuestionError(null);
+    fetch("/api/network/generate-question")
+      .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+      .then(function(d) {
+        if (d.status === "success" && d.question) { setQuestionText(d.question); setQuestionOpen(true); }
+        else throw new Error("Invalid response");
         setQuestionLoading(false);
       })
-      .catch((err) => {
-        setQuestionLoading(false);
-        setQuestionError(err.message || "Unknown error");
-      });
-  };
+      .catch(function(e) { setQuestionLoading(false); setQuestionError(e.message); });
+  }
+
+  function handleSubmit() {
+    setEvalLoading(true); setEvalError(null); setEvalResult(null);
+    fetch("/api/network/evaluate", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ config: buildNetworkJSON(nodes, edges), question: questionText })
+    })
+      .then(function(r) { if (!r.ok) throw new Error(r.status + " " + r.statusText); return r.json(); })
+      .then(function(d) {
+        setEvalLoading(false); setEvalResult(d);
+        var text = (d && d.evaluation ? d.evaluation : "").toString();
+        var m = text.match(/(\b[0-5])\s*\/\s*5|score\s*[:\-]?\s*(\d+)/i);
+        var score = m ? Math.max(0, Math.min(5, Math.round(Number(m[1] || m[2])))) : 0;
+        practicalAPI.submit({ subject:"computerNetworks", task: questionText || "Networking Practical", performanceScore:score, meta:{ rawEvaluation:text } })
+          .then(function(res) {
+            var stored = sessionStorage.getItem("user");
+            var prev = stored ? JSON.parse(stored) : {};
+            var updated = Object.assign({}, prev, { progress:res.data.data.progress, moduleProgress:res.data.data.moduleProgress, streak:res.data.data.streak });
+            sessionStorage.setItem("user", JSON.stringify(updated));
+            updateUser(updated);
+          })
+          .catch(function(err) { console.error("Practical submit failed:", err); });
+      })
+      .catch(function(e) { setEvalLoading(false); setEvalError(e.message); });
+  }
+
+  var canvasBg = dark ? "#060d1a" : "#f0f9ff";
+  var txtSub   = dark ? "#94a3b8" : "#64748b";
+  var ghostBdr = dark ? "rgba(148,163,184,0.15)" : "#e2e8f0";
+
+  var submitStyle = { display:"flex", alignItems:"center", gap:6, padding:"9px 18px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#06b6d4,#3b82f6)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", boxShadow:"0 2px 14px rgba(6,182,212,0.4)", fontFamily:"'Inter','Segoe UI',sans-serif", transition:"opacity 0.2s" };
+  var ghostStyle = { display:"flex", alignItems:"center", gap:6, padding:"8px 14px", borderRadius:8, border:"1px solid "+ghostBdr, background:"transparent", color:txtSub, fontSize:12, fontWeight:600, cursor:"pointer", transition:"all 0.2s", fontFamily:"'Inter','Segoe UI',sans-serif" };
 
   return (
     <>
-      <div
-        className="canvas"
-        ref={reactFlowWrapper}
-        style={{ flex: 1, position: "relative", background: "#0b1220" }}
-      >
+      <div ref={reactFlowWrapper} style={{ flex:1, position:"relative", background:canvasBg }}>
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onInit={handleInit}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onNodeClick={handleNodeClick}
+          nodes={nodes} edges={edges}
+          onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+          onInit={handleInit} onDrop={onDrop} onDragOver={onDragOver}
+          onNodeClick={function(e, n) { e.preventDefault(); e.stopPropagation(); if (onNodeClick) onNodeClick(n); }}
           onNodeDoubleClick={handleNodeDoubleClick}
-          onConnect={handleOnConnectDrag}
+          onConnect={onConnect}
           nodeTypes={nodeTypes}
           fitView
-          // defaultViewport={{ x: 0, y: 0, zoom: 0.8 }} // 👈 Zoomed out to 80%
-
         >
-          <Controls />
-          <Background color="#1a1a1a" gap={16} />
+          <Controls style={{ background: dark ? "#111827" : "#fff", border:"1px solid "+(dark ? "rgba(6,182,212,0.15)" : "#e2e8f0"), borderRadius:8 }} />
+          <Background color={dark ? "#1e293b" : "#bae6fd"} gap={20} size={1} />
         </ReactFlow>
 
-        {/* Submit Button - fixed bottom right corner */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 20,
-            right: 20,
-            zIndex: 10,
-          }}
-        >
-          <button
-            onClick={handleSubmitNetwork}
-            disabled={evalLoading}
-            style={{
-              padding: "10px 20px",
-              fontSize: 16,
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: 5,
-              cursor: evalLoading ? "not-allowed" : "pointer",
-            }}
-          >
-            {evalLoading ? "Evaluating..." : "Submit Network"}
-          </button>
-        </div>
-
-        {/* View Question Button - top right corner */}
-        <div
-          style={{
-            position: "absolute",
-            top: 20,
-            right: 20,
-            zIndex: 20,
-          }}
-        >
-          <button
-            onClick={() => setQuestionModalOpen(true)}
-            disabled={questionLoading}
-            style={{
-              padding: "8px 16px",
-              fontSize: 14,
-              backgroundColor: "#28a745",
-              color: "white",
-              border: "none",
-              borderRadius: 5,
-              cursor: questionLoading ? "not-allowed" : "pointer",
-            }}
-            title="View Question"
-          >
+        <div style={{ position:"absolute", top:16, right:16, zIndex:20 }}>
+          <button onClick={function() { setQuestionOpen(true); }} disabled={questionLoading} style={ghostStyle}
+            onMouseEnter={function(e) { e.currentTarget.style.borderColor="#22d3ee"; e.currentTarget.style.color="#22d3ee"; }}
+            onMouseLeave={function(e) { e.currentTarget.style.borderColor=ghostBdr; e.currentTarget.style.color=txtSub; }}>
+            <Eye size={13} />
             {questionLoading ? "Loading..." : "View Question"}
           </button>
         </div>
 
-{evalResult && evalResult.evaluation && (
-  <div
-    style={{
-      position: "fixed",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      width: "80vw",
-      maxWidth: 600,
-      maxHeight: "70vh",
-      overflowY: "auto",
-      backgroundColor: "rgba(0, 0, 0, 0.85)",
-      color: "white",
-      padding: 20,
-      borderRadius: 8,
-      zIndex: 50,
-      boxShadow: "0 0 20px rgba(39, 199, 231, 0.7)",
-    }}
-  >
-    <h3>Evaluation Result</h3>
-    <ReactMarkdown
-      style={{ fontSize: 14, lineHeight: 1.3 }}
-    >
-      {evalResult.evaluation}
-    </ReactMarkdown>
-    <button
-      onClick={() => setEvalResult(null)}
-      style={{
-        marginTop: 10,
-        padding: "6px 12px",
-        fontSize: 14,
-        backgroundColor: "#dc3545",
-        border: "none",
-        borderRadius: 4,
-        color: "white",
-        cursor: "pointer",
-      }}
-    >
-      Close
-    </button>
-  </div>
-)}
+        <div style={{ position:"absolute", bottom:20, right:20, zIndex:10 }}>
+          <button onClick={handleSubmit} disabled={evalLoading} style={Object.assign({}, submitStyle, { opacity: evalLoading ? 0.7 : 1 })}
+            onMouseEnter={function(e) { if (!evalLoading) e.currentTarget.style.opacity="0.85"; }}
+            onMouseLeave={function(e) { e.currentTarget.style.opacity = evalLoading ? "0.7" : "1"; }}>
+            {evalLoading
+              ? <><Loader size={14} style={{ animation:"spin 1s linear infinite" }} /> Evaluating...</>
+              : <><Send size={14} /> Submit Network</>}
+          </button>
+        </div>
 
-
-{/* Introduction Modal */}
-{introModalOpen && (
-  <div
-    style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100vw",
-      height: "100vh",
-      backgroundColor: "rgba(0,0,0,0.7)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 50,
-    }}
-  >
-    <div
-      style={{
-        backgroundColor: "#222",
-        color: "white",
-        padding: 30,
-        borderRadius: 10,
-        width: "80vw",
-        maxWidth: 600,
-        maxHeight: "70vh",
-        overflowY: "auto",
-        boxShadow: "0 0 20px rgba(41, 140, 216, 0.7)",
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <h2
-        style={{
-          fontWeight: "bold",
-          color: "#00ffff",
-          marginTop: 0,
-          marginBottom: 24,
-          textAlign: "center",
-        }}
-      >
-        Welcome to the Networking Playground
-      </h2>
-
-      <div
-        style={{
-          fontSize: 16,
-          lineHeight: 1.5,
-          whiteSpace: "pre-wrap",
-          userSelect: "text",
-          flex: 1,
-        }}
-      >
-        {/* Instructions with bold neon-blue headings */}
-        <span
-          style={{
-            fontWeight: "bold",
-            color: "#00ffff",
-            display: "block",
-            marginTop: 10,
-            marginBottom: 6,
-          }}
-        >
-          1. Select Network Components:
-        </span>
-        On the left sidebar, you’ll find various network devices such as PCs, routers, and switches. Click on any device type to select it.
-
-        <br />
-        <br />
-
-        <span
-          style={{
-            fontWeight: "bold",
-            color: "#00ffff",
-            display: "block",
-            marginTop: 10,
-            marginBottom: 6,
-          }}
-        >
-          2. Add Devices to the Canvas:
-        </span>
-        Drag your chosen device from the sidebar and drop it onto the main canvas area. Repeat to add as many devices as needed.
-
-        <br />
-        <br />
-
-        <span
-          style={{
-            fontWeight: "bold",
-            color: "#00ffff",
-            display: "block",
-            marginTop: 10,
-            marginBottom: 6,
-          }}
-        >
-          3. Connect Devices:
-        </span>
-        To create connections between devices, click and drag from one device’s port (small connection point) to another device’s port. These connections represent network cables.
-
-        <br />
-        <br />
-
-        <span
-          style={{
-            fontWeight: "bold",
-            color: "#00ffff",
-            display: "block",
-            marginTop: 10,
-            marginBottom: 6,
-          }}
-        >
-          4. Configure Devices:
-        </span>
-        Click on any device node to open its configuration dialog. Here you can assign IP addresses, subnet masks, and set up interfaces or gateways as needed. Proper configuration is essential for the network to work correctly.
-
-        <br />
-        <br />
-
-        <span
-          style={{
-            fontWeight: "bold",
-            color: "#00ffff",
-            display: "block",
-            marginTop: 10,
-            marginBottom: 6,
-          }}
-        >
-          5. Arrange Your Network:
-        </span>
-        Move devices around on the canvas to organize your network visually. Try to keep connections clear and easy to follow.
-
-        <br />
-        <br />
-
-        <span
-          style={{
-            fontWeight: "bold",
-            color: "#00ffff",
-            display: "block",
-            marginTop: 10,
-            marginBottom: 6,
-          }}
-        >
-          6. Submit Your Network:
-        </span>
-        Once your network is complete and configured, click the Submit Network button (bottom right) to send your design for evaluation.
-
-        <br />
-        <br />
-
-        <span
-          style={{
-            fontWeight: "bold",
-            color: "#00ffff",
-            display: "block",
-            marginTop: 10,
-            marginBottom: 6,
-          }}
-        >
-          7. Review Feedback:
-        </span>
-        After submission, you will receive detailed feedback on your network design, including correctness and suggestions for improvement.
-
-        <br />
-        <br />
-
-        Click the button below to generate a new question and start!
-      </div>
-
-      {/* Generate Question Button - centered at bottom */}
-      <button
-        onClick={() => {
-          setIntroModalOpen(false);
-          fetchQuestion();      // Fetch question when user clicks generate
-          setQuestionModalOpen(true); // Show question modal after intro
-        }}
-        style={{
-          marginTop: 30,
-          alignSelf: "center",
-          padding: "10px 30px",
-          fontSize: 16,
-          backgroundColor: "#2b96baff",
-          color: "white",
-          border: "none",
-          borderRadius: 6,
-          cursor: "pointer",
-        }}
-      >
-        Generate Question
-      </button>
-    </div>
-  </div>
-)}
-
-
-
-
-        {/* Error display */}
         {evalError && (
-          <div
-            style={{
-              position: "absolute",
-              top: 60,
-              right: 20,
-              width: 320,
-              backgroundColor: "#dc3545",
-              color: "white",
-              padding: 15,
-              borderRadius: 8,
-              zIndex: 10,
-              boxShadow: "0 0 10px rgba(0,0,0,0.7)",
-            }}
-          >
-            <strong>Error:</strong> {evalError}
-            <button
-              onClick={() => setEvalError(null)}
-              style={{
-                marginTop: 10,
-                padding: "6px 12px",
-                fontSize: 14,
-                backgroundColor: "#6c757d",
-                border: "none",
-                borderRadius: 4,
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Close
+          <div style={{ position:"absolute", top:60, right:16, zIndex:30, background: dark ? "#1e1b1b" : "#fff", border:"1px solid #f87171", borderRadius:10, padding:"12px 16px", maxWidth:320, boxShadow:"0 4px 20px rgba(248,113,113,0.2)", display:"flex", gap:10, alignItems:"flex-start" }}>
+            <AlertCircle size={16} color="#f87171" style={{ flexShrink:0, marginTop:1 }} />
+            <div>
+              <div style={{ color:"#f87171", fontWeight:700, fontSize:13, marginBottom:4 }}>Evaluation Error</div>
+              <div style={{ color: dark ? "#94a3b8" : "#64748b", fontSize:12 }}>{evalError}</div>
+            </div>
+            <button onClick={function() { setEvalError(null); }} style={{ background:"transparent", border:"none", cursor:"pointer", color:"#94a3b8", marginLeft:"auto", padding:2 }}>
+              <X size={14} />
             </button>
           </div>
         )}
       </div>
 
-{/* Question Modal */}
-{questionModalOpen && (
-  <div
-    style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100vw",
-      height: "100vh",
-      backgroundColor: "rgba(0,0,0,0.7)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 50,
-    }}
-    onClick={() => setQuestionModalOpen(false)} // clicking outside closes modal
-  >
-    <div
-      style={{
-        backgroundColor: "#222",
-        color: "white",
-        padding: 30,
-        borderRadius: 10,
-        width: "80vw",
-        maxWidth: 600,
-        maxHeight: "70vh",
-        overflowY: "auto",
-        boxShadow: "0 0 20px rgba(39, 199, 231, 0.7)",
-        position: "relative",
-      }}
-      onClick={(e) => e.stopPropagation()} // prevent modal close on clicking inside
-    >
-      <h2 style={{ marginTop: 0, marginBottom: 15 }}>Generated Networking Question</h2>
-      {questionLoading && <p>Loading question...</p>}
-      {questionError && (
-        <p style={{ color: "red" }}>
-          Error loading question: {questionError}
-        </p>
-      )}
-      {!questionLoading && !questionError && (
-        <pre
-          style={{
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            fontSize: 16,
-            lineHeight: 1.4,
-          }}
-        >
-          {questionText.replace(/\*\*/g, "")}
-        </pre>
-      )}
-
-      <button
-        onClick={() => setQuestionModalOpen(false)}
-        style={{
-          marginTop: 20,
-          padding: "10px 20px",
-          fontSize: 16,
-          backgroundColor: "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: 6,
-          cursor: "pointer",
+      <ThemedModal open={introOpen} onClose={function() { setIntroOpen(false); }} title="Networking Playground" icon={Zap} accentHex="#06b6d4" dark={dark} maxW={600}>
+        {function(p) {
+          return (
+            <>
+              <div style={{ color:p.sub, fontSize:13, lineHeight:1.7 }}>
+                {[
+                  ["Select Devices",  "Choose PCs, Switches, or Routers from the left sidebar."],
+                  ["Add to Canvas",   "Drag any device onto the canvas to place it."],
+                  ["Connect Devices", "Drag from a node handle to another to create a cable."],
+                  ["Configure",       "Double-click any device to set IP, subnet mask, and gateway."],
+                  ["Submit",          "Click Submit Network (bottom-right) to get AI evaluation."],
+                ].map(function(item, i) {
+                  return (
+                    <div key={i} style={{ display:"flex", gap:12, marginBottom:12 }}>
+                      <div style={{ width:22, height:22, borderRadius:6, background:"rgba(6,182,212,0.12)", border:"1px solid rgba(6,182,212,0.25)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:11, fontWeight:800, color:"#22d3ee", fontFamily:"monospace" }}>
+                        {i + 1}
+                      </div>
+                      <div><span style={{ color:p.txt, fontWeight:600 }}>{item[0]}: </span>{item[1]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                onClick={function() { setIntroOpen(false); fetchQuestion(); }}
+                style={{ alignSelf:"center", padding:"10px 32px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#06b6d4,#3b82f6)", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer", boxShadow:"0 2px 16px rgba(6,182,212,0.35)", marginTop:4 }}
+                onMouseEnter={function(e) { e.currentTarget.style.opacity="0.85"; }}
+                onMouseLeave={function(e) { e.currentTarget.style.opacity="1"; }}>
+                Generate Question &amp; Start
+              </button>
+            </>
+          );
         }}
-      >
-        OK
-      </button>
-    </div>
-  </div>
-)}
+      </ThemedModal>
 
+      <ThemedModal open={questionOpen} onClose={function() { setQuestionOpen(false); }} title="Network Question" icon={BookOpen} accentHex="#06b6d4" dark={dark}>
+        {function(p) {
+          return (
+            <>
+              {questionLoading && <div style={{ color:p.sub, fontSize:13 }}>Loading question...</div>}
+              {questionError   && <div style={{ color:"#f87171", fontSize:13 }}>Error: {questionError}</div>}
+              {!questionLoading && !questionError && (
+                <div style={{ color: dark ? "#cbd5e1" : "#334155", fontSize:14, lineHeight:1.8, whiteSpace:"pre-wrap" }}>
+                  {questionText.replace(/\*\*/g, "")}
+                </div>
+              )}
+              <button onClick={function() { setQuestionOpen(false); }}
+                style={{ alignSelf:"flex-end", padding:"8px 22px", borderRadius:7, border:"none", background:"linear-gradient(135deg,#06b6d4,#3b82f6)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                OK
+              </button>
+            </>
+          );
+        }}
+      </ThemedModal>
 
+      <ThemedModal open={!!(evalResult && evalResult.evaluation)} onClose={function() { setEvalResult(null); }} title="Evaluation Result" icon={CheckCircle} accentHex="#10b981" dark={dark} maxW={640}>
+        {function(p) {
+          return (
+            <>
+              <div style={{ color: dark ? "#cbd5e1" : "#334155", fontSize:13, lineHeight:1.8 }}>
+                <ReactMarkdown>{evalResult ? evalResult.evaluation : ""}</ReactMarkdown>
+              </div>
+              <button onClick={function() { setEvalResult(null); }}
+                style={{ alignSelf:"flex-end", padding:"8px 22px", borderRadius:7, border:"none", background:"linear-gradient(135deg,#10b981,#059669)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                Close
+              </button>
+            </>
+          );
+        }}
+      </ThemedModal>
 
-      {/* PC Config Dialog */}
       <PCConfigDialog
         open={configDialogOpen}
-        initialData={configNode?.data?.interfaces?.[0]}
+        initialData={configNode && configNode.data && configNode.data.interfaces ? configNode.data.interfaces[0] : null}
         onSave={handleSaveConfig}
-        onClose={handleCancelConfig}
+        onClose={function() { setConfigDialogOpen(false); setConfigNode(null); }}
       />
-
-      {/* Router Config Dialog */}
       <RouterConfigDialog
         open={routerDialogOpen}
-        initialData={routerConfigNode?.data?.interfaces?.[0]}
+        initialData={routerConfigNode && routerConfigNode.data && routerConfigNode.data.interfaces ? routerConfigNode.data.interfaces[0] : null}
         onSave={handleSaveRouterConfig}
-        onClose={handleCancelRouterConfig}
+        onClose={function() { setRouterDialogOpen(false); setRouterConfigNode(null); }}
       />
+
+      <style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style>
     </>
   );
 });
 
 export default CanvasFlow;
 
-// Export function to build JSON from nodes and edges
 export function buildNetworkJSON(nodes, edges) {
   return {
-    nodes: nodes.map((node) => ({
-      id: node.id,
-      label: node.data.label,
-      deviceType: node.data.deviceType,
-      position: node.position,
-      interfaces: node.data.interfaces || [],
-      ports: node.data.ports || null,
-    })),
-    edges: edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      sourceHandle: edge.sourceHandle,
-      targetHandle: edge.targetHandle,
-      type: edge.type,
-      style: edge.style,
-    })),
+    nodes: nodes.map(function(n) {
+      return { id:n.id, label:n.data.label, deviceType:n.data.deviceType, position:n.position, interfaces:n.data.interfaces||[], ports:n.data.ports||null };
+    }),
+    edges: edges.map(function(e) {
+      return { id:e.id, source:e.source, target:e.target, sourceHandle:e.sourceHandle, targetHandle:e.targetHandle, type:e.type, style:e.style };
+    }),
   };
 }

@@ -3,399 +3,294 @@ import { useAuth } from '../hooks/useAuth'
 import { useQuery } from 'react-query'
 import { subjectAPI, practicalAPI } from '../services/api'
 import { Link, useNavigate } from 'react-router-dom'
-import { 
-  BookOpen, 
-  Trophy, 
-  TrendingUp, 
-  Target, 
-  Calendar,
-  BarChart3,
-  Play,
-  Award,
-  Mail,
-  MapPin,
-  Heart
+import {
+  BookOpen, Trophy, TrendingUp, Target, Calendar,
+  BarChart3, Play, Award, Mail, MapPin, Zap
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 
-const Dashboard = () => {
+const StatCard = ({ title, value, icon: Icon, accent, subtitle }) => (
+  <div className="stat-card group hover:-translate-y-0.5 transition-transform duration-200">
+    <div className="flex items-center gap-4">
+      <div className={`p-3 rounded-xl ${accent} flex-shrink-0`}>
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+      <div>
+        <p className="text-xs text-gray-500 dark:text-gray-500 font-medium">{title}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">{value}</p>
+        {subtitle && <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">{subtitle}</p>}
+      </div>
+    </div>
+  </div>
+)
+
+const QuickCard = ({ title, description, icon: Icon, accent, onClick }) => (
+  <button
+    onClick={onClick}
+    className="card p-6 text-left w-full group hover:-translate-y-1 transition-all duration-200"
+  >
+    <div className={`w-10 h-10 rounded-xl ${accent} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+      <Icon className="w-5 h-5 text-white" />
+    </div>
+    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">{title}</h3>
+    <p className="text-xs text-gray-500 dark:text-gray-500 leading-relaxed">{description}</p>
+  </button>
+)
+
+export default function Dashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
+
   const { data: recommendedSubjects, isLoading: subjectsLoading } = useQuery(
     'recommendedSubjects',
     () => subjectAPI.getRecommendedSubjects(6),
     { staleTime: 5 * 60 * 1000 }
-  );
-
-  // Fetch practical history to include in recent activity
+  )
   const { data: practicalHistory } = useQuery(
     'practicalHistory',
     () => practicalAPI.getHistory(),
-    { 
-      staleTime: 2 * 60 * 1000,
-      enabled: !!user // Only fetch if user is logged in
-    }
-  );
+    { staleTime: 2 * 60 * 1000, enabled: !!user }
+  )
+
+  const practicalCount = Array.isArray(practicalHistory?.data) ? practicalHistory.data.length : 0
+  const quizTotal      = user?.progress?.totalQuestions || 0
+  const quizCorrect    = user?.progress?.correctAnswers || 0
+  const totalAttempts  = quizTotal + practicalCount
+  const practicalCorrect = Array.isArray(practicalHistory?.data)
+    ? practicalHistory.data.filter(p => (p?.performanceScore || 0) >= 3).length : 0
+  const accuracy = totalAttempts === 0 ? 0 : Math.round(((quizCorrect + practicalCorrect) / totalAttempts) * 100)
 
   const stats = {
-    // Calculate total questions from quiz history + practical history
-    totalQuestions: (() => {
-      const quizCount = user?.progress?.totalQuestions || 0;
-      const practicalCount = Array.isArray(practicalHistory?.data) ? practicalHistory.data.length : 0;
-      return quizCount + practicalCount;
-    })(),
-    correctAnswers: user?.progress?.correctAnswers || 0,
-    accuracy: (() => {
-      const quizCorrect = user?.progress?.correctAnswers || 0;
-      const quizTotal = user?.progress?.totalQuestions || 0;
-      const practicalCount = Array.isArray(practicalHistory?.data) ? practicalHistory.data.length : 0;
-      const totalAttempts = quizTotal + practicalCount;
-      
-      if (totalAttempts === 0) return 0;
-      
-      // Count practical submissions with score >= 3 as "correct"
-      const practicalCorrect = Array.isArray(practicalHistory?.data) 
-        ? practicalHistory.data.filter(p => (p?.performanceScore || 0) >= 3).length 
-        : 0;
-      
-      const totalCorrect = quizCorrect + practicalCorrect;
-      return Math.round((totalCorrect / totalAttempts) * 100);
-    })(),
+    totalQuestions: quizTotal + practicalCount,
+    accuracy,
     points: user?.progress?.points || 0,
-    // Prefer top-level streak and level if available, fallback to legacy progress
     streakDays: typeof user?.streak === 'number' ? user.streak : (user?.progress?.streakDays || 0),
-    level: typeof user?.level === 'number' ? user.level : (Math.floor((user?.progress?.points || 0) / 100) + 1)
-  };
-
-  const questionsToday = user?.progress?.questionsToday || 0;
-  const dailyGoal = user?.preferences?.dailyGoal || 10;
-  const dailyPct = Math.min(Math.round((questionsToday / dailyGoal) * 100), 100);
-
-  // Function to navigate to subjects page
-  const navigateToSubjects = () => {
-    navigate('/subjects');
+    level: typeof user?.level === 'number' ? user.level : (Math.floor((user?.progress?.points || 0) / 100) + 1),
   }
 
-  // Function to navigate to questions page for a random subject
-  const navigateToPractice = () => {
-      navigate('/questions');
-    }
-  
+  const questionsToday = user?.progress?.questionsToday || 0
+  const dailyGoal      = user?.preferences?.dailyGoal || 10
+  const dailyPct       = Math.min(Math.round((questionsToday / dailyGoal) * 100), 100)
 
-  const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
-    <div className="stat-card">
-      <div className="flex items-center">
-        <div className={`p-3 rounded-lg ${color}`}>
-          <Icon className="w-6 h-6 text-white" />
-        </div>
-        <div className="ml-4">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-2xl font-bold text-foreground">{value}</p>
-          {subtitle && (
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-
-  const QuickActionCard = ({ title, description, icon: Icon, color, onClick }) => (
-    <button
-      onClick={onClick}
-      className="card text-left hover:shadow-soft-md transition-all duration-300 group"
-    >
-      <div className={`p-3 rounded-lg ${color} w-fit mb-4 group-hover:scale-105 transition-transform`}>
-        <Icon className="w-6 h-6 text-white" />
-      </div>
-      <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
-    </button>
-  )
-
-  const SubjectCard = ({ subject }) => (
-    <div className="card hover:shadow-soft-md transition-all duration-300 group">
-      <div className="flex items-center mb-4">
-        <div 
-          className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl group-hover:scale-105 transition-transform"
-          style={{ backgroundColor: subject.color + '20' }}
-        >
-          {subject.icon}
-        </div>
-        <div className="ml-4">
-          <h3 className="text-lg font-semibold text-foreground">{subject.name}</h3>
-          <p className="text-sm text-muted-foreground">{subject.category}</p>
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground mb-4">{subject.description}</p>
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {subject.activeTopicsCount || 0} topics
-        </span>
-        <Link 
-          to={`/questions?subject=${subject._id}`}
-          className="btn btn-primary btn-sm group-hover:scale-105 transition-transform"
-        >
-          <Play className="w-4 h-4 mr-1" />
-          Start Learning
-        </Link>
-      </div>
-    </div>
-  )
+  // Recent activity
+  const quizHistory = Array.isArray(user?.quizHistory) ? user.quizHistory : []
+  const practicals  = Array.isArray(practicalHistory?.data) ? practicalHistory.data : []
+  const recentActivities = [
+    ...quizHistory.map(q => ({
+      type: 'quiz', subject: q.module || 'Unknown',
+      result: q.isCorrect ? 'Correct' : 'Incorrect',
+      timestamp: new Date(q.timestamp || Date.now()),
+      dot: q.isCorrect ? 'bg-emerald-400' : 'bg-red-400',
+    })),
+    ...practicals.map(p => ({
+      type: 'practical', subject: p.subject || 'Unknown',
+      result: `Score: ${p.performanceScore || 0}/5`,
+      timestamp: new Date(p.timestamp || Date.now()),
+      dot: (p.performanceScore || 0) >= 3 ? 'bg-cyan-400' : 'bg-orange-400',
+    })),
+  ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 6)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-      <div className="flex-1 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Welcome Section */}
-          <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-xl p-6 md:p-8 text-white shadow-soft mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">
-              Welcome back, {user?.firstName}! 👋
-            </h1>
-            <p className="text-primary-100 opacity-90">
-              Ready to continue your learning journey? You're doing great!
-            </p>
-            <div className="mt-6 flex items-center space-x-4 flex-wrap gap-2">
-              <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1">
-                <Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-300" />
-                <span className="text-sm">Level {stats.level}</span>
+    <div className="space-y-8">
+      {/* Welcome banner */}
+      <div className="relative overflow-hidden rounded-2xl p-6 md:p-8
+                      bg-gradient-to-br from-cyan-500 to-blue-600
+                      dark:from-cyan-900 dark:to-blue-950
+                      dark:border dark:border-cyan-900
+                      shadow-lg">
+        {/* subtle grid */}
+        <div className="absolute inset-0 grid-overlay opacity-30 dark:opacity-100" />
+        <div className="relative z-10">
+          <div className="cyber-badge bg-white/20 border-white/30 text-white dark:bg-cyan-950 dark:border-cyan-800 dark:text-cyan-400 mb-4 w-fit">
+            <Zap className="w-3 h-3" />
+            System Online
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white dark:text-white mb-1">
+            Welcome back, {user?.firstName}
+          </h1>
+          <p className="text-cyan-100 dark:text-gray-400 text-sm mb-5">
+            Ready to continue your learning journey?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { icon: Trophy,   label: `Level ${stats.level}` },
+              { icon: Award,    label: `${stats.points} pts` },
+              { icon: Calendar, label: `${stats.streakDays}d streak` },
+            ].map(({ icon: Icon, label }) => (
+              <div key={label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                                          bg-white/15 dark:bg-white/5 backdrop-blur-sm
+                                          border border-white/20 dark:border-white/10
+                                          text-white dark:text-gray-300 text-xs font-medium">
+                <Icon className="w-3.5 h-3.5 text-yellow-300 dark:text-cyan-400" />
+                {label}
               </div>
-              <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1">
-                <Award className="w-4 h-4 md:w-5 md:h-5 text-yellow-300" />
-                <span className="text-sm">{stats.points} points</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1">
-                <Calendar className="w-4 h-4 md:w-5 md:h-5 text-yellow-300" />
-                <span className="text-sm">{stats.streakDays} day streak</span>
-              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="dashboard-grid">
+        <StatCard title="Total Questions" value={stats.totalQuestions} icon={BookOpen}  accent="bg-blue-500"   subtitle="Attempted" />
+        <StatCard title="Accuracy"        value={`${stats.accuracy}%`} icon={Target}    accent="bg-emerald-500" subtitle="Correct rate" />
+        <StatCard title="Points"          value={stats.points}         icon={Trophy}    accent="bg-amber-500"  subtitle="Earned" />
+        <StatCard title="Streak"          value={`${stats.streakDays}d`} icon={TrendingUp} accent="bg-violet-500" subtitle="Consecutive" />
+      </div>
+
+      {/* Quick actions */}
+      <div>
+        <h2 className="section-heading">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+          <QuickCard title="Start Practice"   description="AI-generated questions across all subjects" icon={Play}     accent="bg-emerald-500" onClick={() => navigate('/questions')} />
+          <QuickCard title="View Progress"    description="Detailed analytics and performance charts"  icon={BarChart3} accent="bg-blue-500"    onClick={() => navigate('/profile')} />
+          <QuickCard title="Browse Subjects"  description="Explore subjects and syllabi"               icon={BookOpen}  accent="bg-violet-500"  onClick={() => navigate('/subjects')} />
+        </div>
+      </div>
+
+      {/* Recommended subjects */}
+      {(subjectsLoading || recommendedSubjects?.data?.subjects?.length > 0) && (
+        <div>
+          <h2 className="section-heading">Recommended for You</h2>
+          {subjectsLoading ? (
+            <div className="flex justify-center py-10"><LoadingSpinner size="lg" /></div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              {recommendedSubjects.data.subjects.map((subject) => (
+                <div key={subject._id} className="card p-5 group hover:-translate-y-0.5 transition-all duration-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                         style={{ backgroundColor: (subject.color || '#06b6d4') + '20' }}>
+                      {subject.icon}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{subject.name}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">{subject.category}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mb-4 leading-relaxed">{subject.description}</p>
+                  <Link to={`/questions?subject=${subject._id}`}
+                        className="btn btn-outline btn-sm w-full justify-center gap-1.5">
+                    <Play className="w-3 h-3" /> Start
+                  </Link>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
+        </div>
+      )}
 
-          {/* Stats Grid */}
-          <div className="dashboard-grid mb-8">
-            <StatCard
-              title="Total Questions"
-              value={stats.totalQuestions}
-              icon={BookOpen}
-              color="bg-blue-500"
-              subtitle="Questions attempted"
-            />
-            <StatCard
-              title="Accuracy"
-              value={`${stats.accuracy}%`}
-              icon={Target}
-              color="bg-green-500"
-              subtitle="Correct answers"
-            />
-            <StatCard
-              title="Points Earned"
-              value={stats.points}
-              icon={Trophy}
-              color="bg-yellow-500"
-              subtitle="Total points"
-            />
-            <StatCard
-              title="Streak Days"
-              value={stats.streakDays}
-              icon={TrendingUp}
-              color="bg-purple-500"
-              subtitle="Consecutive days"
-            />
-          </div>
-
-          {/* Quick Actions */}
-          <div className="mb-8">
-            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-6">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <QuickActionCard
-                title="Start Practice"
-                description="Begin a new practice session with AI-generated questions"
-                icon={Play}
-                color="bg-green-500"
-                onClick={navigateToPractice}
-              />
-              <QuickActionCard
-                title="View Progress"
-                description="Check your detailed progress and performance analytics"
-                icon={BarChart3}
-                color="bg-blue-500"
-                onClick={() => navigate('/profile')}
-              />
-              <QuickActionCard
-                title="Browse Subjects"
-                description="Explore different subjects and topics to learn"
-                icon={BookOpen}
-                color="bg-purple-500"
-                onClick={navigateToSubjects}
-              />
-            </div>
-          </div>
-
-          {/* Recommended Subjects */}
-          <div className="mb-8">
-            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-6">Recommended for You</h2>
-            {subjectsLoading ? (
-              <div className="flex justify-center py-8">
-                <LoadingSpinner size="lg" />
+      {/* Activity + Daily goal */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent activity */}
+        <div>
+          <h2 className="section-heading">Recent Activity</h2>
+          <div className="card p-5 mt-4">
+            {recentActivities.length === 0 ? (
+              <div className="text-center py-8">
+                <BookOpen className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-500">No activity yet. Start learning!</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {recommendedSubjects?.data?.subjects?.map((subject) => (
-                  <SubjectCard key={subject._id} subject={subject} />
+              <div className="space-y-3">
+                {recentActivities.map((a, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.dot}`} />
+                      <div>
+                        <p className="text-xs font-medium text-gray-800 dark:text-gray-200 capitalize">
+                          {a.type} · {a.subject.replace(/([A-Z])/g, ' $1').trim()}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-600">{a.result}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-400 dark:text-gray-600 flex-shrink-0">
+                      {a.timestamp.toLocaleDateString()}
+                    </span>
+                  </div>
                 ))}
               </div>
             )}
           </div>
+        </div>
 
-          {/* Recent Activity & Daily Goal - Side by side on larger screens */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Recent Activity */}
-            <div>
-              <h2 className="text-xl md:text-2xl font-bold text-foreground mb-6">Recent Activity</h2>
-              <div className="card p-6">
-                {(() => {
-                  // Combine quiz history and practical history
-                  const quizHistory = Array.isArray(user?.quizHistory) ? user.quizHistory : [];
-                  const practicals = Array.isArray(practicalHistory?.data) ? practicalHistory.data : [];
-                  
-                  const recentActivities = [
-                    ...quizHistory.map(quiz => ({
-                      type: 'quiz',
-                      subject: quiz.module || 'Unknown',
-                      result: quiz.isCorrect ? 'Correct' : 'Incorrect',
-                      timestamp: new Date(quiz.timestamp || Date.now()),
-                      color: quiz.isCorrect ? 'bg-green-500' : 'bg-red-500'
-                    })),
-                    ...practicals.map(practical => ({
-                      type: 'practical',
-                      subject: practical.subject || 'Unknown',
-                      result: `Score: ${practical.performanceScore || 0}/5`,
-                      timestamp: new Date(practical.timestamp || Date.now()),
-                      color: (practical.performanceScore || 0) >= 3 ? 'bg-emerald-500' : 'bg-orange-500'
-                    }))
-                  ]
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .slice(0, 6); // Show last 6 activities
-
-                  if (recentActivities.length === 0) {
-                    return (
-                      <div className="text-center py-8">
-                        <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                        <p className="text-muted-foreground">No activity yet. Start learning to see your progress!</p>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="space-y-3">
-                      {recentActivities.map((activity, index) => (
-                        <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-2 h-2 rounded-full ${activity.color}`}></div>
-                            <div>
-                              <span className="text-sm font-medium text-foreground capitalize">
-                                {activity.type} - {activity.subject.replace(/([A-Z])/g, ' $1').trim()}
-                              </span>
-                              <p className="text-xs text-muted-foreground">{activity.result}</p>
-                            </div>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {activity.timestamp.toLocaleDateString()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
+        {/* Daily goal */}
+        <div>
+          <h2 className="section-heading">Daily Goal</h2>
+          <div className="card p-5 mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {questionsToday} / {dailyGoal} questions
+              </span>
+              <span className="cyber-label">{dailyPct}%</span>
             </div>
+            <div className="progress-bar mb-3">
+              <div className="progress-fill" style={{ width: `${dailyPct}%` }} />
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-500">
+              {questionsToday >= dailyGoal
+                ? '🎉 Daily goal reached! +20 bonus points awarded.'
+                : `${dailyGoal - questionsToday} more to hit your goal today.`}
+            </p>
 
-            {/* Daily Goal Progress */}
-            <div>
-              <h2 className="text-xl md:text-2xl font-bold text-foreground mb-6">Daily Goal</h2>
-              <div className="card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-medium text-foreground">
-                    Questions Today: {questionsToday}/{dailyGoal}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {dailyPct}%
-                  </span>
+            {/* Mini stats */}
+            <div className="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-gray-100 dark:border-gray-700/50">
+              {[
+                { label: 'This Week', value: questionsToday * 3 },
+                { label: 'Best Streak', value: `${stats.streakDays}d` },
+                { label: 'Accuracy', value: `${stats.accuracy}%` },
+              ].map(({ label, value }) => (
+                <div key={label} className="text-center">
+                  <p className="text-base font-bold text-gray-900 dark:text-white">{value}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">{label}</p>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-secondary-700 rounded-full h-2">
-                  <div 
-                    className="bg-primary-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${dailyPct}%` }}
-                  ></div>
-                </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {questionsToday >= dailyGoal ? 'Daily goal reached! +20 bonus points awarded.' : 'Keep going! You are close to your daily goal.'}
-                </p>
-              </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Paper Texture Footer - Enhanced with Glass Morphism */}
-<footer className="bg-background/80 backdrop-blur-lg border-t border-border/50 mt-auto supports-backdrop-blur:bg-background/60">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-      {/* EduBot Mission */}
-      <div className="text-center md:text-left">
-        <h3 className="text-lg font-semibold text-foreground mb-4">EduBot Mission</h3>
-        <p className="text-muted-foreground text-sm leading-relaxed">
-          Making quality education accessible to everyone through AI-powered learning experiences. 
-          We believe in empowering students with interactive tools and personalized feedback.
-        </p>
-      </div>
-
-      {/* Contact Information */}
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-foreground mb-4">Contact Us</h3>
-        <div className="space-y-3">   
-          <div className="flex items-center justify-center md:justify-start">
-            <Mail className="w-4 h-4 text-muted-foreground mr-2" />
-            <span className="text-sm text-muted-foreground">support@edubot.com</span>
+      {/* Footer */}
+      <footer className="border-t border-gray-200 dark:border-gray-700/50 pt-8 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded bg-cyan-400 flex items-center justify-center">
+                <Zap className="w-3 h-3 text-gray-900" />
+              </div>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">EduBot Mission</span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-500 leading-relaxed">
+              Making quality CS education accessible through AI-powered tools and personalized feedback.
+            </p>
           </div>
-          <div className="flex items-center justify-center md:justify-start">
-            <MapPin className="w-4 h-4 text-muted-foreground mr-2" />
-            <span className="text-sm text-muted-foreground">Pillai College of Engineering</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Contact</p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
+                <Mail className="w-3.5 h-3.5" /> support@edubot.com
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
+                <MapPin className="w-3.5 h-3.5" /> Pillai College of Engineering
+              </div>
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Quick Links</p>
+            <div className="space-y-1.5">
+              {[['Browse Subjects', '/subjects'], ['Practice Questions', '/questions'], ['Your Profile', '/profile']].map(([label, href]) => (
+                <Link key={href} to={href} className="block text-xs text-gray-500 dark:text-gray-500 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
+                  {label}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Quick Links */}
-      <div className="text-center md:text-right">
-        <h3 className="text-lg font-semibold text-foreground mb-4">Quick Links</h3>
-        <div className="space-y-2">
-          <Link to="/subjects" className="block text-sm text-muted-foreground hover:text-primary transition-colors duration-200">
-            Browse Subjects
-          </Link>
-          <Link to="/questions" className="block text-sm text-muted-foreground hover:text-primary transition-colors duration-200">
-            Practice Questions
-          </Link>
-          <Link to="/profile" className="block text-sm text-muted-foreground hover:text-primary transition-colors duration-200">
-            Your Profile
-          </Link>
+        <div className="border-t border-gray-100 dark:border-gray-700/30 pt-4 text-center">
+          <p className="text-xs text-gray-400 dark:text-gray-600 font-mono">
+            © {new Date().getFullYear()} EDUBOT LEARNING PLATFORM · ALL RIGHTS RESERVED
+          </p>
         </div>
-      </div>
-    </div>
-
-    {/* Copyright */}
-    <div className="border-t border-border/30 mt-8 pt-6 text-center">
-      {/* <div className="flex items-center justify-center mb-2">
-        <span className="text-sm text-muted-foreground mr-1">Made with</span>
-        <Heart className="w-4 h-4 text-destructive fill-current animate-pulse" />
-        <span className="text-sm text-muted-foreground ml-1">for learners worldwide</span>
-      </div> */}
-      <p className="text-sm text-muted-foreground">
-        © {new Date().getFullYear()} EduBot Learning Platform. All rights reserved.
-      </p>
-    </div>
-  </div>
-</footer>
+      </footer>
     </div>
   )
 }
-
-export default Dashboard

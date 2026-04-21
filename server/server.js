@@ -123,7 +123,7 @@ app.post("/api/network/evaluate", async (req, res) => {
 
   try {
     const flaskResponse = await axios.post(
-      "http://localhost:5001/evaluate-network",
+      "http://localhost:6000/evaluate-network",
       { question, config },
       { headers: { "Content-Type": "application/json" } }
     );
@@ -139,7 +139,7 @@ app.post("/api/network/evaluate", async (req, res) => {
 app.get("/api/network/generate-question", async (req, res) => {
   try {
     const flaskResponse = await axios.get(
-      "http://localhost:5001/generate-network-question"
+      "http://localhost:6000/generate-network-question"
     );
 
     res.json({ status: "success", question: flaskResponse.data.question });
@@ -186,7 +186,7 @@ app.post("/api/network/upload-file", upload.single("file"), (req, res) => {
 app.get("/api/coding/generate-question", async (req, res) => {
   try {
     const flaskResponse = await axios.get(
-      "http://localhost:5001/generate-coding-question"
+      "http://localhost:6000/generate-coding-question"
     );
     res.json({ status: "success", question: flaskResponse.data.question });
   } catch (error) {
@@ -213,7 +213,7 @@ app.post("/api/coding/run", async (req, res) => {
     console.log(`Forwarding code execution request to Flask: ${language}`);
     
     const flaskResponse = await axios.post(
-      "http://localhost:5001/run-code",
+      "http://localhost:6000/run-code",
       { code, language, question },
       { 
         headers: { "Content-Type": "application/json" },
@@ -253,7 +253,7 @@ app.post("/api/coding/run", async (req, res) => {
 app.get("/api/sql/generate-question", async (req, res) => {
   try {
     const flaskResponse = await axios.get(
-      "http://localhost:5001/generate-sql-question"
+      "http://localhost:6000/generate-sql-question"
     );
     res.json({ status: "success", data: flaskResponse.data });
   } catch (error) {
@@ -271,7 +271,7 @@ app.post("/api/sql/run-setup", async (req, res) => {
 
   try {
     const flaskResponse = await axios.post(
-      "http://localhost:5001/run-setup",
+      "http://localhost:6000/run-setup",
       { setup_sql, session_id },
       { headers: { "Content-Type": "application/json" } }
     );
@@ -289,7 +289,7 @@ app.post("/api/sql/get-table", async (req, res) => {
 
   try {
     const flaskResponse = await axios.post(
-      "http://localhost:5001/get-table",
+      "http://localhost:6000/get-table",
       { session_id, table_name },
       { headers: { "Content-Type": "application/json" } }
     );
@@ -307,7 +307,7 @@ app.post("/api/sql/run-query", async (req, res) => {
 
   try {
     const flaskResponse = await axios.post(
-      "http://localhost:5001/run-query",
+      "http://localhost:6000/run-query",
       { session_id, user_query },
       { headers: { "Content-Type": "application/json" } }
     );
@@ -329,7 +329,7 @@ app.post("/api/sql/evaluate", async (req, res) => {
 
   try {
     const flaskResponse = await axios.post(
-      "http://localhost:5001/evaluate-sql",
+      "http://localhost:6000/evaluate-sql",
       { question, setup_sql, user_query, user_output },
       { headers: { "Content-Type": "application/json" } }
     );
@@ -348,7 +348,7 @@ app.post("/api/sql/evaluate", async (req, res) => {
 // Generate fluency topic
 app.get("/api/fluency/topic", async (req, res) => {
   try {
-    const flaskResponse = await axios.get("http://localhost:5001/api/fluency/topic");
+    const flaskResponse = await axios.get("http://localhost:8000/api/fluency/topic");
     res.json(flaskResponse.data);
   } catch (error) {
     console.error("Error forwarding fluency topic request:", error.message);
@@ -377,7 +377,7 @@ app.post("/api/fluency/upload", upload.single('audio'), async (req, res) => {
 
     // Forward to Flask with proper headers
     const flaskResponse = await axios.post(
-      "http://localhost:5001/api/fluency/upload",
+      "http://localhost:8000/api/fluency/upload",
       formData,
       { 
         headers: {
@@ -412,7 +412,7 @@ app.post("/api/fluency/upload", upload.single('audio'), async (req, res) => {
 app.post("/api/fluency/score", async (req, res) => {
   try {
     const flaskResponse = await axios.post(
-      "http://localhost:5001/api/fluency/score",
+      "http://localhost:8000/api/fluency/score",
       req.body,
       { headers: { "Content-Type": "application/json" } }
     );
@@ -443,7 +443,7 @@ app.get("/api/health", (req, res) => {
     },
     services: {
       api: 'operational',
-      flask: 'check http://localhost:5001',
+      flask: 'check http://localhost:6000',
       database: dbStatus === 1 ? 'operational' : 'unavailable'
     }
   });
@@ -508,7 +508,7 @@ const startServer = async () => {
     console.log(`\n🚀 EduBot Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`🔗 Flask backend: http://localhost:5001`);
+    console.log(`🔗 Flask backend: http://localhost:6000`);
     console.log(`💻 Code execution: http://localhost:${PORT}/api/coding/run`);
     console.log(`🌐 Networking: http://localhost:${PORT}/api/network/generate-question`);
     console.log(`🗄️ SQL Practice: http://localhost:${PORT}/api/sql/generate-question`);

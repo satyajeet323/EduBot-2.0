@@ -32,7 +32,8 @@ GEMINI_MODEL = "models/gemini-2.5-flash-lite"
 GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GOOGLE_API_KEY:
     raise ValueError("GEMINI_API_KEY environment variable is required")
-TEMP_DIR = "temp"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+TEMP_DIR = os.path.join(_HERE, "temp")
 CHUNK_DURATION = 15  # seconds per chunk for Whisper
 
 # ========== Setup ==========
@@ -54,50 +55,94 @@ app.add_middleware(
 # Helper: Split audio
 # -------------------------
 def _get_ffmpeg_bin():
-    """Return a usable path to ffmpeg executable across environments.
-
-    Resolution order:
-    1) venv-bundled ffmpeg on Windows (server/venv/Scripts/ffmpeg.exe)
-    2) imageio-ffmpeg managed binary
-    3) Any ffmpeg in PATH (via shutil.which)
-    4) Fallback to the literal 'ffmpeg' string (let OS resolve)
-    """
-    try:
-        here = os.path.dirname(__file__)
-        win_ffmpeg = os.path.join(here, "venv", "Scripts", "ffmpeg.exe")
-        if os.name == "nt" and os.path.isfile(win_ffmpeg):
-            return win_ffmpeg
-    except Exception:
-        pass
+    """Return a usable path to ffmpeg executable across environments."""
+    # 1) imageio-ffmpeg managed binary (bundles its own ffmpeg exe)
     if _imageio_ffmpeg is not None:
         try:
             exe = _imageio_ffmpeg.get_ffmpeg_exe()
             if exe and os.path.isfile(exe):
+                print(f"[ffmpeg] Using imageio-ffmpeg: {exe}")
                 return exe
+        except Exception as e:
+            print(f"[ffmpeg] imageio-ffmpeg failed: {e}")
+
+    # 2) Search all Python site-packages for imageio_ffmpeg binaries (covers venv scenarios)
+    try:
+        import glob as _glob
+        import site as _site
+        search_roots = []
+        try:
+            search_roots += _site.getsitepackages()
         except Exception:
             pass
-    # check PATH
+        try:
+            search_roots.append(_site.getusersitepackages())
+        except Exception:
+            pass
+        # Also check the Python that owns this interpreter
+        search_roots.append(os.path.dirname(os.path.dirname(os.__file__)))
+        for root in search_roots:
+            pattern = os.path.join(root, "imageio_ffmpeg", "binaries", "ffmpeg*.exe")
+            matches = _glob.glob(pattern)
+            if matches:
+                exe = matches[0]
+                print(f"[ffmpeg] Found via site-packages scan: {exe}")
+                return exe
+    except Exception as e:
+        print(f"[ffmpeg] site-packages scan failed: {e}")
+
+    # 3) System PATH
     try:
         which = shutil.which("ffmpeg")
         if which:
+            print(f"[ffmpeg] Using PATH ffmpeg: {which}")
             return which
     except Exception:
         pass
-    return "ffmpeg"
+
+    # 4) Common Windows install locations
+    common_paths = [
+        r"C:\ffmpeg\bin\ffmpeg.exe",
+        r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+        r"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe",
+    ]
+    for p in common_paths:
+        if os.path.isfile(p):
+            print(f"[ffmpeg] Found at common path: {p}")
+            return p
+
+    # 5) Known user site-packages path (last resort hardcoded fallback)
+    fallback = os.path.join(
+        os.environ.get("LOCALAPPDATA", ""),
+        "Programs", "Python", "Python313", "Lib", "site-packages",
+        "imageio_ffmpeg", "binaries", "ffmpeg-win-x86_64-v7.1.exe"
+    )
+    if os.path.isfile(fallback):
+        print(f"[ffmpeg] Using hardcoded fallback: {fallback}")
+        return fallback
+
+    raise RuntimeError(
+        "ffmpeg not found. Run: pip install imageio-ffmpeg  OR  winget install ffmpeg"
+    )
 
 
 def split_audio_ffmpeg(input_wav, output_dir, chunk_duration):
     os.makedirs(output_dir, exist_ok=True)
     output_pattern = os.path.join(output_dir, "chunk_%03d.wav")
-    ffmpeg.input(input_wav).output(
-        output_pattern,
-        f="segment",
-        segment_time=chunk_duration,
-        c="pcm_s16le",
-        acodec="pcm_s16le",
-        ac=1,
-        ar="16000"
-    ).run(quiet=True, overwrite_output=True, cmd=_get_ffmpeg_bin())
+    ffmpeg_bin = _get_ffmpeg_bin()
+    cmdline = [
+        ffmpeg_bin, "-y", "-i", input_wav,
+        "-f", "segment",
+        "-segment_time", str(chunk_duration),
+        "-c", "pcm_s16le",
+        "-ac", "1",
+        "-ar", "16000",
+        output_pattern
+    ]
+    print(f"[ffmpeg] Splitting: {cmdline}")
+    result = subprocess.run(cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        print(f"[ffmpeg] split warning: {result.stderr.decode(errors='replace')}")
 
 
 
@@ -257,16 +302,12 @@ async def upload_audio(audio: UploadFile = File(...)):
             f.write(await audio.read())
 
         ffmpeg_bin = _get_ffmpeg_bin()
-        try:
-            ffmpeg.input(input_path).output(wav_path, ar="16000", ac=1).run(
-                overwrite_output=True,
-                quiet=True,
-                cmd=ffmpeg_bin
-            )
-        except Exception:
-            # Fallback to direct subprocess in case ffmpeg-python can't resolve the binary
-            cmdline = [ffmpeg_bin, "-y", "-i", input_path, "-ar", "16000", "-ac", "1", wav_path]
-            subprocess.run(cmdline, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        # Use subprocess directly — avoids ffmpeg-python path issues on Windows with spaces
+        cmdline = [ffmpeg_bin, "-y", "-i", input_path, "-ar", "16000", "-ac", "1", wav_path]
+        print(f"[ffmpeg] Running: {cmdline}")
+        result = subprocess.run(cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            raise RuntimeError(f"ffmpeg conversion failed: {result.stderr.decode(errors='replace')}")
         filler_metrics = compute_fillers(wav_path, return_prob=True)
         print(filler_metrics)
         

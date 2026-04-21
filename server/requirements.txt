@@ -8,8 +8,11 @@ imageio-ffmpeg
 soundfile
 fastapi
 uvicorn
-whisper
+openai-whisper
 librosa
 scipy
 numpy
-parselmouth
+sentence-transformers
+torch
+torchaudio
+python-multipart

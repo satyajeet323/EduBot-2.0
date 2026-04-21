@@ -1,218 +1,194 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { 
-  Home, 
-  BookOpen, 
-  HelpCircle, 
-  User, 
-  Menu, 
-  X, 
-  LogOut,
-  Trophy,
-  BarChart3,
-  Sun,
-  Moon,
-  Mic
+import {
+  Home, BookOpen, HelpCircle, User, Menu, X, LogOut,
+  Trophy, BarChart3, Sun, Moon, Mic, ChevronRight, Zap
 } from 'lucide-react'
 
-const Layout = () => {
+const navigation = [
+  { name: 'Dashboard',       href: '/dashboard',       icon: Home },
+  { name: 'Subjects',        href: '/subjects',         icon: BookOpen },
+  { name: 'Questions',       href: '/questions',        icon: HelpCircle },
+  { name: 'English Fluency', href: '/english-fluency',  icon: Mic },
+  { name: 'Profile',         href: '/profile',          icon: User },
+]
+
+export default function Layout() {
   const { user, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(true)
 
   useEffect(() => {
-    // Check for saved theme preference or respect OS preference
-    const isDark = localStorage.getItem("theme") === "dark" ||
-      (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    
-    setDarkMode(isDark);
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, []);
+    const isDark =
+      localStorage.getItem('theme') === 'dark' ||
+      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    setDarkMode(isDark)
+    document.documentElement.classList.toggle('dark', isDark)
+  }, [])
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Subjects', href: '/subjects', icon: BookOpen },
-    { name: 'Questions', href: '/questions', icon: HelpCircle },
-    { name: 'English Fluency', href: '/english-fluency', icon: Mic },
-    { name: 'Profile', href: '/profile', icon: User },
-  ]
-
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode
-    setDarkMode(newDarkMode)
-    if (newDarkMode) {
-      document.documentElement.classList.add("dark")
-      localStorage.setItem("theme", "dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-      localStorage.setItem("theme", "light")
-    }
+  const toggleDark = () => {
+    const next = !darkMode
+    setDarkMode(next)
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('theme', next ? 'dark' : 'light')
   }
 
   const isActive = (path) => location.pathname === path
+  const points = user?.progress?.points || 0
+  const level  = Math.floor(points / 100) + 1
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      {/* Mobile sidebar overlay */}
+    <div className="min-h-screen bg-background flex">
+      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:z-auto ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">E</span>
-              </div>
-              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">EduBot</span>
+      {/* ── Sidebar ── */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-64 flex flex-col
+        bg-white dark:bg-gray-950
+        border-r border-gray-200 dark:border-gray-800
+        shadow-xl
+        transform transition-transform duration-300 ease-in-out
+        lg:relative lg:translate-x-0 lg:z-auto
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        {/* Brand */}
+        <div className="flex items-center justify-between h-16 px-5 border-b border-gray-200 dark:border-gray-700/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-cyan-400 flex items-center justify-center shadow-lg shadow-cyan-400/30">
+              <Zap className="w-4 h-4 text-gray-900" />
             </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <span className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">EduBot</span>
           </div>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden btn-ghost p-1 rounded">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          {/* User info */}
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-blue-600 dark:text-blue-300" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[140px]">
-                  {user?.email}
-                </p>
-              </div>
+        {/* User info */}
+        <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
+              <User className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
             </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 px-2 py-4">
-            <div className="space-y-1">
-              {navigation.map((item) => {
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive(item.href)
-                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    <Icon className="mr-3 h-5 w-5" />
-                    {item.name}
-                  </Link>
-                )
-              })}
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-500 truncate">{user?.email}</p>
             </div>
-          </nav>
-
-          {/* User stats */}
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-2">
-              Your Progress
-            </h3>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600 dark:text-gray-400">Points</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">{user?.progress?.points || 0}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600 dark:text-gray-400">Streak</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">{user?.progress?.streakDays || 0} days</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600 dark:text-gray-400">Level</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  {Math.floor((user?.progress?.points || 0) / 100) + 1}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Logout button */}
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </button>
           </div>
         </div>
-      </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-screen">
-        {/* Top bar */}
-        <header className="sticky top-0 z-10 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6">
-            <div className="flex items-center">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              <div className="hidden lg:ml-4 lg:flex lg:items-center lg:space-x-4">
-                <div className="flex items-center space-x-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-md">
-                  <Trophy className="w-4 h-4 text-yellow-500" />
-                  <span>{user?.progress?.points || 0} points</span>
-                </div>
-                <div className="flex items-center space-x-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-md">
-                  <BarChart3 className="w-4 h-4 text-green-500" />
-                  <span>Level {Math.floor((user?.progress?.points || 0) / 100) + 1}</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Theme toggle button */}
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              aria-label="Toggle dark mode"
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {navigation.map(({ name, href, icon: Icon }) => (
+            <Link
+              key={name}
+              to={href}
+              onClick={() => setSidebarOpen(false)}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200"
+              style={{
+                background: isActive(href) ? 'rgba(6,182,212,0.1)' : 'transparent',
+                color: isActive(href) ? '#22d3ee' : undefined,
+                border: isActive(href) ? '1px solid rgba(6,182,212,0.2)' : '1px solid transparent',
+              }}
             >
-              {darkMode ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
-            </button>
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              <span>{name}</span>
+              {isActive(href) && <ChevronRight className="w-3 h-3 ml-auto text-cyan-500" />}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Stats */}
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700/50">
+          <p className="cyber-label mb-3">Your Progress</p>
+          <div className="space-y-2">
+            {[
+              { label: 'Points', value: points },
+              { label: 'Streak', value: `${user?.progress?.streakDays || 0}d` },
+              { label: 'Level',  value: level },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 dark:text-gray-500">{label}</span>
+                <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{value}</span>
+              </div>
+            ))}
           </div>
+        </div>
+
+        {/* Logout */}
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700/50">
+          <button
+            onClick={() => { logout(); navigate('/login') }}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg
+                       text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/60
+                       hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400
+                       border border-transparent hover:border-red-200 dark:hover:border-red-500/20
+                       transition-all duration-200"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Main ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Topbar */}
+        <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 sm:px-6
+                           bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl
+                           border-b border-gray-200 dark:border-gray-800
+                           shadow-sm">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            {/* Breadcrumb hint */}
+            <div className="hidden lg:flex items-center gap-2">
+              <span className="cyber-badge">
+                <Trophy className="w-3 h-3" />
+                {points} pts
+              </span>
+              <span className="cyber-badge">
+                <BarChart3 className="w-3 h-3" />
+                Lv {level}
+              </span>
+            </div>
+          </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleDark}
+            className="p-2 rounded-lg text-gray-500 dark:text-gray-400
+                       hover:bg-gray-100 dark:hover:bg-gray-800
+                       hover:text-gray-900 dark:hover:text-white
+                       border border-transparent hover:border-gray-200 dark:hover:border-gray-700
+                       transition-all duration-200"
+            aria-label="Toggle theme"
+          >
+            {darkMode
+              ? <Sun className="w-4 h-4" />
+              : <Moon className="w-4 h-4" />}
+          </button>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 py-6">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Content */}
+        <main className="flex-1 overflow-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <Outlet />
           </div>
         </main>
@@ -220,5 +196,3 @@ const Layout = () => {
     </div>
   )
 }
-
-export default Layout
