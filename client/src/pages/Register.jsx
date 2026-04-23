@@ -22,8 +22,10 @@ const Register = () => {
   const onSubmit = async (data) => {
     setIsLoading(true)
     try {
+      // Strip client-only fields before sending to server
+      const { confirmPassword, terms, ...rest } = data
       const userData = {
-        ...data,
+        ...rest,
         preferences: {
           subjects: [],
           learningPace: 'moderate',
@@ -138,6 +140,10 @@ const Register = () => {
                       {...register('password', {
                         required: 'Required',
                         minLength: { value: 6, message: 'Min 6 chars' },
+                        pattern: {
+                          value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+                          message: 'Must have uppercase, lowercase & number',
+                        },
                       })}
                     />
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
@@ -146,6 +152,7 @@ const Register = () => {
                     </button>
                   </div>
                   {errors.password && <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>}
+                  {!errors.password && <p className="mt-1 text-[10px] text-gray-600">Min 6 chars · uppercase · lowercase · number</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-mono font-semibold text-cyan-400 uppercase tracking-widest mb-2">

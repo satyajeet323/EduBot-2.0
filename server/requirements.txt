@@ -2,7 +2,7 @@ flask
 flask-cors
 requests
 python-dotenv
-google-generativeai
+google-genai
 ffmpeg-python
 imageio-ffmpeg
 soundfile

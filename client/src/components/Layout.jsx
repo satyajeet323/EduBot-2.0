@@ -188,9 +188,13 @@ export default function Layout() {
 
         {/* Content */}
         <main className="flex-1 overflow-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {['/networking-playground', '/dbms-quiz', '/english-fluency'].includes(location.pathname) ? (
             <Outlet />
-          </div>
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <Outlet />
+            </div>
+          )}
         </main>
       </div>
     </div>

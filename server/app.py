@@ -5,7 +5,7 @@ import json
 import subprocess
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import google.generativeai as genai
+import google.genai as genai_new
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -13,7 +13,7 @@ load_dotenv()
 
 # === Flask App Setup ===
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"])  # Restrict CORS origins
+CORS(app, origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"])
 
 # === Configuration ===
 DB_FOLDER = 'sessions'
@@ -23,10 +23,13 @@ os.makedirs(DB_FOLDER, exist_ok=True)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY environment variable is required")
-genai.configure(api_key=GEMINI_API_KEY)
-network_model = genai.GenerativeModel("models/gemini-2.5-flash-lite")
-sql_model = genai.GenerativeModel("models/gemini-2.5-flash-lite")
-coding_model = genai.GenerativeModel("models/gemini-2.5-flash-lite")
+
+_gemini_client = genai_new.Client(api_key=GEMINI_API_KEY)
+GEMINI_MODEL = "gemini-2.5-flash"
+
+def _generate(prompt):
+    response = _gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+    return response.text
 
 # === Helper Functions ===
 def get_db_path(session_id):
@@ -61,8 +64,7 @@ Write the question clearly and in a student-friendly manner without giving away 
 
 """
     try:
-        response = network_model.generate_content(prompt)
-        question_text = response.text.strip()
+        question_text = _generate(prompt).strip()
 
         # Strip markdown code blocks if present
         if question_text.startswith("```"):
@@ -115,8 +117,7 @@ def evaluate_network():
     """
 
     try:
-        response = network_model.generate_content(prompt)
-        text = response.text.strip()
+        text = _generate(prompt).strip()
 
         # Clean code block markdown if present
         if text.startswith("```json"):
@@ -145,8 +146,7 @@ Return JSON like:
 Use only simple SELECT + WHERE (no joins).
 """
     try:
-        response = sql_model.generate_content(prompt)
-        content = response.text.strip()
+        content = _generate(prompt).strip()
 
         # Strip code block markers
         if content.startswith("```json"):
@@ -272,8 +272,7 @@ Return JSON like:
 }}
 """
     try:
-        response = sql_model.generate_content(prompt)
-        gemini_text = response.text.strip()
+        gemini_text = _generate(prompt).strip()
 
         if gemini_text.startswith("```json"):
             gemini_text = gemini_text.replace("```json", "").replace("```", "").strip()
@@ -296,8 +295,7 @@ def generate_coding_question():
     """
 
     try:
-        response = coding_model.generate_content(prompt)
-        question = response.text.strip()
+        question = _generate(prompt).strip()
         return jsonify({'question': question})
     except Exception as e:
         return jsonify({'error': f'Gemini error: {str(e)}'}), 500
@@ -484,8 +482,7 @@ def run_code():
     """
 
     try:
-        gemini_response = coding_model.generate_content(eval_prompt)
-        ai_feedback = gemini_response.text
+        ai_feedback = _generate(eval_prompt)
     except Exception as e:
         ai_feedback = f"AI Evaluation Failed: {str(e)}"
 
@@ -509,8 +506,7 @@ def generate_fluency_topic():
     try:
         prompt = "Give a single open-ended topic related to technologies, current events, or general knowledge that would be suitable for a 1-minute English speaking assessment. Reply with topic only, no additional text."
         
-        response = coding_model.generate_content(prompt)
-        topic = response.text.strip()
+        topic = _generate(prompt).strip()
         
         if not topic:
             raise ValueError("Empty topic generated")

@@ -219,7 +219,7 @@ export default function DBMSQuiz() {
   var steps = [['Question', 1], ['Setup DB', 2], ['Write Query', 3], ['Evaluate', 4]];
 
   return (
-    <div style={{ minHeight: '100vh', background: bg, fontFamily: "'Inter','Segoe UI',sans-serif", paddingBottom: 40 }}>
+    <div style={{ minHeight: 'calc(100vh - 64px)', background: bg, fontFamily: "'Inter','Segoe UI',sans-serif", paddingBottom: 40 }}>
 
       {toast && (
         <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, padding: '12px 18px', borderRadius: 10, background: toast.type === 'error' ? '#1e1b1b' : '#0d1117', border: '1px solid ' + (toast.type === 'error' ? '#f87171' : '#10b981'), color: toast.type === 'error' ? '#f87171' : '#34d399', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.4)', maxWidth: 360 }}>
@@ -260,7 +260,7 @@ export default function DBMSQuiz() {
       </div>
 
       {!question ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 56px)', gap: 20, padding: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 120px)', gap: 20, padding: 24 }}>
           <div style={{ width: 72, height: 72, borderRadius: 20, background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Database size={32} color="#22d3ee" />
           </div>
@@ -277,7 +277,7 @@ export default function DBMSQuiz() {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', height: 'calc(100vh - 120px)', overflow: 'hidden' }}>
 
           <div style={{ background: panel, borderRight: '1px solid ' + bdr, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 

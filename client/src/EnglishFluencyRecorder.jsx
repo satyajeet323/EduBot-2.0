@@ -102,7 +102,7 @@ const EnglishFluencyRecorder = () => {
   var transcript        = trState[0]; var setTranscript = trState[1];
   var fdState           = useState(null);
   var fillersData       = fdState[0]; var setFillersData = fdState[1];
-  var darkState         = useState(getIsDark);
+  var darkState         = useState(() => getIsDark());
   var dark              = darkState[0]; var setDark = darkState[1];
 
   var timerRef = useRef(null);
@@ -128,6 +128,10 @@ const EnglishFluencyRecorder = () => {
     try {
       var res = await fetch("/api/fluency/topic");
       var data = await res.json();
+      if (!res.ok || data.error || !data.topic) {
+        alert("Could not fetch topic: " + (data.error || "Empty response"));
+        return;
+      }
       setTopic(data.topic);
       setTopicGenerated(true);
     } catch(err) {
@@ -233,7 +237,7 @@ const EnglishFluencyRecorder = () => {
   var btnBase = { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 24px", borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter','Segoe UI',sans-serif", transition: "opacity 0.2s" };
 
   return (
-    <div style={{ minHeight: "100vh", background: bg, fontFamily: "'Inter','Segoe UI',sans-serif" }}>
+    <div style={{ minHeight: "calc(100vh - 64px)", background: bg, fontFamily: "'Inter','Segoe UI',sans-serif" }}>
 
       {/* Header */}
       <div style={{ background: panel, borderBottom: "1px solid " + bdr, padding: "0 24px", height: 56, display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 40 }}>
@@ -250,7 +254,7 @@ const EnglishFluencyRecorder = () => {
 
         {/* ── STEP 1: Generate topic ── */}
         {!topicGenerated && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 120px)", gap: 24, textAlign: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 184px)", gap: 24, textAlign: "center" }}>
             <div style={{ width: 80, height: 80, borderRadius: 24, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Mic size={36} color="#a78bfa" />
             </div>
@@ -419,7 +423,16 @@ const EnglishFluencyRecorder = () => {
                     <span style={{ fontSize: 10, fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#f87171" }}>Grammatical Mistakes</span>
                   </div>
                   <p style={{ color: txt, fontSize: 13, lineHeight: 1.8, margin: 0, whiteSpace: "pre-line" }}>
-                    {scoreData.grammatical_mistake || "No major mistakes detected."}
+                    {Array.isArray(scoreData.grammatical_mistake)
+                      ? scoreData.grammatical_mistake.length === 0
+                        ? "No major mistakes detected."
+                        : scoreData.grammatical_mistake.map(function(m, i) {
+                            if (typeof m === "object" && m !== null) {
+                              return (m.mistake || "") + (m.correction ? " → " + m.correction : "");
+                            }
+                            return String(m);
+                          }).join("\n")
+                      : scoreData.grammatical_mistake || "No major mistakes detected."}
                   </p>
                 </div>
 

@@ -19,7 +19,7 @@ import asyncio
 import numpy as np
 import librosa
 import scipy.signal as sig
-import google.generativeai as genai
+import google.genai as genai_new
 from CRNN import compute_fillers
 from Semantic import compute_relevance
 from dotenv import load_dotenv
@@ -28,10 +28,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ========== Configuration ==========
-GEMINI_MODEL = "models/gemini-2.5-flash-lite"
+GEMINI_MODEL = "gemini-2.5-flash"
 GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GOOGLE_API_KEY:
     raise ValueError("GEMINI_API_KEY environment variable is required")
+
+_gemini_client = genai_new.Client(api_key=GOOGLE_API_KEY)
+
+def _generate(prompt):
+    response = _gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+    return response.text
 _HERE = os.path.dirname(os.path.abspath(__file__))
 TEMP_DIR = os.path.join(_HERE, "temp")
 CHUNK_DURATION = 15  # seconds per chunk for Whisper
@@ -39,8 +45,6 @@ CHUNK_DURATION = 15  # seconds per chunk for Whisper
 # ========== Setup ==========
 os.makedirs(TEMP_DIR, exist_ok=True)
 asr_model = whisper.load_model("tiny.en")  # Whisper ASR
-genai.configure(api_key=GOOGLE_API_KEY)
-genai.configure(api_key=GOOGLE_API_KEY)
 
 app = FastAPI()
 app.add_middleware(
@@ -271,10 +275,12 @@ def analyze_prosody(wav_path, transcript=None):
 @app.get("/api/fluency/topic")
 async def generate_topic():
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
         prompt = "Give a single open-ended topic related to technologies. Reply with topic only."
-        response = await asyncio.wait_for(model.generate_content_async(prompt), timeout=12)
-        topic = response.text.strip()
+        topic = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(None, _generate, prompt),
+            timeout=12
+        )
+        topic = topic.strip()
         if not topic:
             raise ValueError("Empty topic.")
         return {"topic": topic}
@@ -557,9 +563,7 @@ Now produce the JSON response only, following the schema and using the values su
 """
 
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        response = model.generate_content(prompt)
-        raw = response.text.strip()
+        raw = _generate(prompt).strip()
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         if not m:
             raise ValueError("No JSON found.")

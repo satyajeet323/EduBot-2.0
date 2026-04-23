@@ -25,7 +25,7 @@ const NetworkingPlayground = () => {
   const sub  = dark ? "#64748b" : "#94a3b8";
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: bg, fontFamily: "'Inter','Segoe UI',sans-serif" }}>
+    <div style={{ height: "calc(100vh - 64px)", display: "flex", flexDirection: "column", background: bg, fontFamily: "'Inter','Segoe UI',sans-serif" }}>
       {/* Header */}
       <header style={{
         padding: "0 1.25rem",
